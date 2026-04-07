@@ -138,7 +138,7 @@ def load_model(model_name: str, optimize: bool = False, torch_compile: bool = Fa
         voxcpm_model_path=voxcpm_path,
         zipenhancer_model_path=None,
         enable_denoiser=False,
-        optimize=optimize,
+        optimize=torch_compile,
         lora_config=lora_config,
     )
 
