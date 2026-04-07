@@ -54,11 +54,8 @@ else:
     if tts_path not in folder_paths.folder_names_and_paths["tts"][0]:
         folder_paths.folder_names_and_paths["tts"][0].append(tts_path)
 
-for model_name, config in MODEL_CONFIGS.items():
-    AVAILABLE_VOXCPM_MODELS[model_name] = {
-        "type": "official",
-        **config
-    }
+# Official models are already populated in model_info.py at import time.
+# Scan for local models and add them.
 
 voxcpm_search_paths = []
 for tts_folder in folder_paths.get_folder_paths("tts"):

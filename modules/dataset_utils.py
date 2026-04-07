@@ -9,11 +9,12 @@ def create_jsonl_dataset(audio_directory: str, output_filename: str = "train.jso
     """
     Scans a directory for .wav files and matching .txt transcripts,
     creating a JSONL manifest file for VoxCPM training.
-    
+    Only .wav audio format is supported (.flac, .mp3, .ogg, etc. are ignored).
+
     Args:
-        audio_directory: Path to the folder containing audio and text files.
+        audio_directory: Path to the folder containing .wav audio and .txt transcript files.
         output_filename: Name of the output file.
-        
+
     Returns:
         Path to the created dataset file.
     """
@@ -22,7 +23,7 @@ def create_jsonl_dataset(audio_directory: str, output_filename: str = "train.jso
 
     audio_files = glob.glob(os.path.join(audio_directory, "*.wav"))
     if not audio_files:
-        raise ValueError(f"No .wav files found in {audio_directory}")
+        raise ValueError(f"No .wav files found in {audio_directory}. Only .wav format is supported.")
 
     dataset_path = os.path.join(audio_directory, output_filename)
     valid_samples = 0

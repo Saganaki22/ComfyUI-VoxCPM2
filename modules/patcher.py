@@ -52,7 +52,7 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
             from .loader import load_model
             self.model.model = load_model(
                 self.model.model_name,
-                optimize=self.model.torch_compile,
+                optimize=self.model.optimize,
                 torch_compile=self.model.torch_compile,
                 dtype=self.model.dtype,
             )
@@ -77,7 +77,7 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
                 del model_instance
 
         # Clear the loader cache entry so the model is fully released
-        cache_key = f"{self.model.model_name}_opt{self.model.torch_compile}_compile{self.model.torch_compile}_dtype{self.model.dtype}"
+        cache_key = f"{self.model.model_name}_opt{self.model.optimize}_compile{self.model.torch_compile}_dtype{self.model.dtype}"
         if cache_key in LOADED_MODELS_CACHE:
             del LOADED_MODELS_CACHE[cache_key]
 

@@ -10,4 +10,7 @@ MODEL_CONFIGS = {
     },
 }
 
-AVAILABLE_VOXCPM_MODELS = {}
+AVAILABLE_VOXCPM_MODELS = {
+    name: {"type": "official", **cfg}
+    for name, cfg in MODEL_CONFIGS.items()
+}

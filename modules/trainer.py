@@ -145,7 +145,7 @@ def run_lora_training(
         device=accelerator.device,
     )
     
-    del base_model.audio_vae
+    base_model.audio_vae = None
 
     model = accelerator.prepare_model(base_model)
     unwrapped_model = accelerator.unwrap(model)

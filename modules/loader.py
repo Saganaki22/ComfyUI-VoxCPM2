@@ -33,7 +33,7 @@ def _resolve_dtype(dtype: str) -> str:
             logger.info(f"GPU compute capability sm_{major}x — bf16 not supported, defaulting to fp16")
             return "fp16"
 
-    return "auto"  # CPU — don't force anything
+    return "auto"  # CPU — no dtype conversion; caller skips the conversion branch when "auto"
 
 
 def _detect_architecture(model_path: str) -> str:
@@ -53,9 +53,10 @@ class VoxCPMModelHandler(torch.nn.Module):
     that ComfyUI's ModelPatcher can manage, while the actual heavy model
     is loaded on demand.
     """
-    def __init__(self, model_name: str, torch_compile: bool = False, dtype: str = "auto"):
+    def __init__(self, model_name: str, optimize: bool = False, torch_compile: bool = False, dtype: str = "auto"):
         super().__init__()
         self.model_name = model_name
+        self.optimize = optimize
         self.torch_compile = torch_compile
         self.dtype = dtype
         self.model = None  # This will hold the actual loaded voxcpm.VoxCPM instance

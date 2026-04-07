@@ -168,7 +168,7 @@ def _normalize_loudness(wav_path: str):
     torchaudio.save(wav_path, normalized_audio, sr)
 
 
-def _load_patcher(model_name, device, torch_compile, dtype="auto"):
+def _load_patcher(model_name, device, torch_compile, dtype="auto", optimize=False):
     """Get or create a patcher for the given model/device/config.
     Fully unloads any existing patchers with a different config to free VRAM/RAM."""
     if device == "cuda":
@@ -178,7 +178,7 @@ def _load_patcher(model_name, device, torch_compile, dtype="auto"):
         load_device = torch.device("cpu")
         offload_device = torch.device("cpu")
 
-    cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
+    cache_key = f"{model_name}_{device}_opt{optimize}_compile{torch_compile}_dtype{dtype}"
 
     # Fast path: already cached with the right key, skip eviction
     if cache_key in VOXCPM_PATCHER_CACHE:
@@ -191,7 +191,7 @@ def _load_patcher(model_name, device, torch_compile, dtype="auto"):
         old_patcher.force_unload()
 
     if cache_key not in VOXCPM_PATCHER_CACHE:
-        handler = VoxCPMModelHandler(model_name, torch_compile=torch_compile, dtype=dtype)
+        handler = VoxCPMModelHandler(model_name, optimize=optimize, torch_compile=torch_compile, dtype=dtype)
         patcher = VoxCPMPatcher(handler, load_device=load_device, offload_device=offload_device, size=handler.size)
         VOXCPM_PATCHER_CACHE[cache_key] = patcher
 
@@ -286,7 +286,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
             logger.info("VoxCPM2 TTS generation complete.")
 
             if force_offload:
-                cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
+                cache_key = f"{model_name}_{device}_opt{False}_compile{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
                 offload_asr()
@@ -463,7 +463,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
             logger.info("VoxCPM2 voice cloning complete.")
 
             if force_offload:
-                cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
+                cache_key = f"{model_name}_{device}_opt{False}_compile{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
                 offload_asr()

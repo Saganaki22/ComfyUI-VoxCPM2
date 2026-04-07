@@ -117,7 +117,9 @@ class Accelerator:
     # AMP helpers
     # ------------------------------------------------------------------ #
     def autocast(self, *args, **kwargs):
-        return torch.amp.autocast("cuda", enabled=self.amp, *args, **kwargs)
+        device_type = self.device.type
+        enabled = self.amp and device_type == "cuda"
+        return torch.amp.autocast(device_type, enabled=enabled, *args, **kwargs)
 
     def backward(self, loss: torch.Tensor):
         self.scaler.scale(loss).backward()
