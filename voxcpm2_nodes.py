@@ -18,6 +18,66 @@ from .voxcpm2_train_nodes import VoxCPM_TrainConfig, VoxCPM_DatasetMaker, VoxCPM
 logger = logging.getLogger(__name__)
 
 VOXCPM_PATCHER_CACHE = {}
+MAX_REFERENCE_AUDIO_SECONDS = 50.0
+
+# ---------------------------------------------------------------------------
+# ASR (Auto Speech Recognition) — lazy-loaded singleton
+# ---------------------------------------------------------------------------
+_ASR_MODEL = None
+
+
+def get_asr_model():
+    """Lazily load and cache the FunASR SenseVoiceSmall model for auto-transcription."""
+    global _ASR_MODEL
+    if _ASR_MODEL is not None:
+        return _ASR_MODEL
+    try:
+        from funasr import AutoModel
+        from huggingface_hub import snapshot_download
+        asr_model_ref = "FunAudioLLM/SenseVoiceSmall"
+        logger.info(f"Resolving ASR model: {asr_model_ref}")
+        asr_model_path = snapshot_download(repo_id=asr_model_ref)
+        logger.info("Loading ASR model on CPU ...")
+        _ASR_MODEL = AutoModel(
+            model=asr_model_path,
+            disable_update=True,
+            log_level="INFO",
+            device="cpu",
+        )
+        logger.info("ASR model loaded.")
+        return _ASR_MODEL
+    except ImportError:
+        raise ImportError(
+            "ASR requires funasr. Install with: pip install funasr"
+        )
+
+
+def transcribe_audio(wav_path: str) -> str:
+    """Run ASR on a wav file and return the transcribed text."""
+    asr_model = get_asr_model()
+    res = asr_model.generate(input=wav_path, language="auto", use_itn=True)
+    if not res:
+        return ""
+    first_item = res[0]
+    if isinstance(first_item, dict):
+        return str(first_item.get("text", "")).split("|>")[-1].strip()
+    return ""
+
+
+def offload_asr():
+    """Release the ASR model from memory."""
+    global _ASR_MODEL
+    if _ASR_MODEL is not None:
+        del _ASR_MODEL
+        _ASR_MODEL = None
+        import gc
+        gc.collect()
+        logger.info("ASR model offloaded.")
+
+
+# ---------------------------------------------------------------------------
+# Audio utilities
+# ---------------------------------------------------------------------------
 
 
 def get_available_devices():
@@ -31,12 +91,18 @@ def get_available_devices():
 
 
 def set_seed(seed: int):
+    import random
     if seed < 0:
-        import random as _random
-        seed = _random.randint(0, 2**31 - 1)
+        seed = random.randint(0, 2**31 - 1)
+    random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    try:
+        import numpy as np
+        np.random.seed(seed)
+    except ImportError:
+        pass
 
 
 def _save_audio_to_temp(waveform: torch.Tensor, sample_rate: int) -> str:
@@ -48,8 +114,42 @@ def _save_audio_to_temp(waveform: torch.Tensor, sample_rate: int) -> str:
         waveform = waveform.unsqueeze(0)
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     tmp.close()
-    torchaudio.save(tmp.name, waveform, sample_rate)
+    try:
+        torchaudio.save(tmp.name, waveform, sample_rate)
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
     return tmp.name
+
+
+def _get_audio_duration_seconds(wav_path: str) -> float:
+    """Get audio duration in seconds using soundfile."""
+    import soundfile as sf
+    info = sf.info(wav_path)
+    return float(info.frames) / float(info.samplerate)
+
+
+def _validate_reference_audio_duration(wav_path: str):
+    """Raise ValueError if reference audio exceeds the maximum allowed duration."""
+    duration = _get_audio_duration_seconds(wav_path)
+    if duration > MAX_REFERENCE_AUDIO_SECONDS:
+        raise ValueError(
+            f"Reference audio is {duration:.1f}s — max allowed is {MAX_REFERENCE_AUDIO_SECONDS:.0f}s. "
+            "Trim the audio and try again."
+        )
+
+
+def _normalize_loudness(wav_path: str):
+    """Normalize audio loudness to -20 LUFS in-place."""
+    audio, sr = torchaudio.load(wav_path)
+    loudness = torchaudio.functional.loudness(audio, sr)
+    # loudness returns per-channel tensor — average to scalar
+    loudness_val = loudness.mean().item()
+    normalized_audio = torchaudio.functional.gain(audio, -20 - loudness_val)
+    torchaudio.save(wav_path, normalized_audio, sr)
 
 
 def _load_patcher(model_name, device, torch_compile, dtype="auto"):
@@ -63,6 +163,10 @@ def _load_patcher(model_name, device, torch_compile, dtype="auto"):
         offload_device = torch.device("cpu")
 
     cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
+
+    # Fast path: already cached with the right key, skip eviction
+    if cache_key in VOXCPM_PATCHER_CACHE:
+        return VOXCPM_PATCHER_CACHE[cache_key]
 
     # Evict all cached patchers that don't match the requested config
     stale_keys = [k for k in VOXCPM_PATCHER_CACHE if k != cache_key]
@@ -111,6 +215,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
                 io.Boolean.Input("force_offload", default=False, label_on="Force Offload", label_off="Auto", tooltip="Fully unload model from VRAM and RAM after generation."),
                 io.Combo.Input("dtype", options=["auto", "bf16", "fp16"], default="auto", tooltip="Model dtype. Auto uses native bf16 (fp16 on older GPUs)."),
                 io.Combo.Input("device", options=available_devices, default=default_device, tooltip="Inference device."),
+                io.Boolean.Input("enable_asr", default=False, label_on="ASR", label_off="Off", tooltip="Auto-transcribe reference audio to text using SenseVoiceSmall ASR. Requires funasr package. First run downloads the model (~400MB)."),
                 io.Int.Input("retry_max_attempts", default=3, min=0, max=10, step=1, tooltip="Auto-retry on bad generation (babbling/silence). 0 = no retries."),
                 io.Float.Input("retry_threshold", default=6.0, min=2.0, max=20.0, step=0.1, tooltip="Threshold for detecting bad generations based on audio/text length ratio."),
                 io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization for faster inference."),
@@ -123,7 +228,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
     @classmethod
     def execute(cls, model_name, lora_name, device, text, cfg_value, inference_timesteps,
                 max_tokens, normalize_text, seed, force_offload,
-                retry_max_attempts, retry_threshold, torch_compile,
+                enable_asr, retry_max_attempts, retry_threshold, torch_compile,
                 voice_description="", dtype="auto", **kwargs):
 
         # Prepend voice description in parentheses if provided
@@ -174,6 +279,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
                 cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
+                offload_asr()
 
             return io.NodeOutput(output_audio, ui=ui.PreviewAudio(output_audio, cls=cls))
 
@@ -213,10 +319,12 @@ class VoxCPM2CloneNode(io.ComfyNode):
                 io.Int.Input("inference_timesteps", default=10, min=1, max=100, step=1, tooltip="Number of diffusion steps. More steps = better quality but slower."),
                 io.Int.Input("max_tokens", default=4096, min=64, max=8192, tooltip="Maximum generation length in tokens. Controls max audio duration."),
                 io.Boolean.Input("normalize_text", default=True, label_on="Normalize", label_off="Raw", tooltip="Auto-process numbers, abbreviations, and punctuation. Turn OFF for phoneme input."),
+                io.Boolean.Input("enable_denoiser", default=False, label_on="Denoise", label_off="Off", tooltip="Denoise reference audio before cloning. Requires modelscope package."),
                 io.Int.Input("seed", default=42, min=-1, max=0xFFFFFFFFFFFFFFFF, tooltip="Random seed for reproducibility. -1 = random each run."),
                 io.Boolean.Input("force_offload", default=False, label_on="Force Offload", label_off="Auto", tooltip="Fully unload model from VRAM and RAM after generation."),
                 io.Combo.Input("dtype", options=["auto", "bf16", "fp16"], default="auto", tooltip="Model dtype. Auto uses native bf16 (fp16 on older GPUs)."),
                 io.Combo.Input("device", options=available_devices, default=default_device, tooltip="Inference device."),
+                io.Boolean.Input("enable_asr", default=False, label_on="ASR", label_off="Off", tooltip="Auto-transcribe reference audio to text using SenseVoiceSmall ASR. Requires funasr package. Ignored when prompt_text is provided. First run downloads the model (~400MB)."),
                 io.Int.Input("retry_max_attempts", default=3, min=0, max=10, step=1, tooltip="Auto-retry on bad generation (babbling/silence). 0 = no retries."),
                 io.Float.Input("retry_threshold", default=6.0, min=2.0, max=20.0, step=0.1, tooltip="Threshold for detecting bad generations based on audio/text length ratio."),
                 io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization for faster inference."),
@@ -228,8 +336,8 @@ class VoxCPM2CloneNode(io.ComfyNode):
 
     @classmethod
     def execute(cls, model_name, lora_name, device, text, cfg_value, inference_timesteps,
-                max_tokens, normalize_text, seed, force_offload,
-                retry_max_attempts, retry_threshold, torch_compile,
+                max_tokens, normalize_text, enable_denoiser, seed, force_offload,
+                enable_asr, retry_max_attempts, retry_threshold, torch_compile,
                 reference_audio=None, prompt_text=None, voice_description="", dtype="auto", **kwargs):
 
         # Prepend voice description in parentheses if provided
@@ -238,6 +346,28 @@ class VoxCPM2CloneNode(io.ComfyNode):
 
         if reference_audio is None:
             raise ValueError("Reference audio is required for voice cloning.")
+
+        # Save reference audio to temp file for duration check and later use
+        ref_waveform = reference_audio['waveform']
+        ref_sample_rate = reference_audio['sample_rate']
+        ref_wav_path = _save_audio_to_temp(ref_waveform, ref_sample_rate)
+
+        # Validate reference audio duration
+        _validate_reference_audio_duration(ref_wav_path)
+
+        # ASR auto-transcription: only when no prompt_text is provided
+        if enable_asr and (not prompt_text or not prompt_text.strip()):
+            logger.info("Running ASR on reference audio...")
+            try:
+                prompt_text = transcribe_audio(ref_wav_path)
+                if prompt_text:
+                    logger.info(f"ASR result: {prompt_text[:80]}{'...' if len(prompt_text) > 80 else ''}")
+                else:
+                    logger.warning("ASR returned empty transcript. Proceeding without transcript.")
+            except Exception as e:
+                logger.warning(f"ASR failed: {e}. Proceeding without transcript.")
+        elif enable_asr and prompt_text and prompt_text.strip():
+            logger.info("ASR enabled but prompt_text already provided — using manual transcript instead.")
 
         patcher = _load_patcher(model_name, device, torch_compile, dtype)
         model_management.load_model_gpu(patcher)
@@ -261,11 +391,6 @@ class VoxCPM2CloneNode(io.ComfyNode):
 
         set_seed(seed)
 
-        # Save reference audio to temp file for the pip package API
-        ref_waveform = reference_audio['waveform']
-        ref_sample_rate = reference_audio['sample_rate']
-        ref_wav_path = _save_audio_to_temp(ref_waveform, ref_sample_rate)
-
         try:
             # Determine cloning mode based on whether prompt_text is provided
             # Ultimate cloning: reference_wav_path + prompt_wav_path + prompt_text
@@ -283,6 +408,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
                     inference_timesteps=inference_timesteps,
                     max_len=max_tokens,
                     normalize=normalize_text,
+                    denoise=enable_denoiser,
                     retry_badcase=retry_max_attempts > 0,
                     retry_badcase_max_times=retry_max_attempts,
                     retry_badcase_ratio_threshold=retry_threshold,
@@ -296,6 +422,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
                     inference_timesteps=inference_timesteps,
                     max_len=max_tokens,
                     normalize=normalize_text,
+                    denoise=enable_denoiser,
                     retry_badcase=retry_max_attempts > 0,
                     retry_badcase_max_times=retry_max_attempts,
                     retry_badcase_ratio_threshold=retry_threshold,
@@ -303,6 +430,24 @@ class VoxCPM2CloneNode(io.ComfyNode):
 
             output_tensor = torch.from_numpy(wav_array).float().unsqueeze(0).unsqueeze(0)
             output_sr = voxcpm_model.tts_model.sample_rate
+
+            # Loudness normalization when denoiser is active
+            if enable_denoiser:
+                norm_tmp = None
+                try:
+                    norm_tmp = _save_audio_to_temp(output_tensor, output_sr)
+                    _normalize_loudness(norm_tmp)
+                    norm_waveform, _ = torchaudio.load(norm_tmp)
+                    output_tensor = norm_waveform.unsqueeze(0)
+                except Exception as e:
+                    logger.warning(f"Loudness normalization failed: {e}. Using raw output.")
+                finally:
+                    if norm_tmp:
+                        try:
+                            os.unlink(norm_tmp)
+                        except OSError:
+                            pass
+
             output_audio = {"waveform": output_tensor, "sample_rate": output_sr}
 
             logger.info("VoxCPM2 voice cloning complete.")
@@ -311,6 +456,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
                 cache_key = f"{model_name}_{device}_opt{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
+                offload_asr()
 
             return io.NodeOutput(output_audio, ui=ui.PreviewAudio(output_audio, cls=cls))
 

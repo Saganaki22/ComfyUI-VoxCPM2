@@ -41,6 +41,10 @@
 * **原生 LoRA 训练** — 直接在 ComfyUI 中训练 LoRA 适配器
 * **自动模型管理** — 模型自动下载，由 ComfyUI 管理，节省显存
 * **Torch 编译** — 可选 `torch.compile` 优化，加速推理
+* **ASR 自动转录** — 使用 SenseVoiceSmall 自动转录参考音频（需安装 `funasr`）
+* **参考音频降噪** — 可选 ZipEnhancer 降噪，提升克隆质量（需安装 `modelscope`）
+* **响度归一化** — 降噪开启时自动将输出响度归一化到 -20 LUFS
+* **音频时长验证** — 自动拒绝超过 50 秒的参考音频，防止质量问题
 
 ## 安装
 
@@ -91,6 +95,7 @@
 | `force_offload` | 开关 | Auto | 生成后强制卸载显存 |
 | `dtype` | 下拉 | auto | 强制模型数据类型。Auto 使用模型原生 dtype |
 | `device` | 下拉 | cuda | 推理设备（cuda、mps、cpu） |
+| `enable_asr` | 开关 | Off | 使用 SenseVoiceSmall 自动转录参考音频。需安装 `funasr`。首次运行下载模型（约400MB） |
 | `retry_max_attempts` | 整数 | 3 | 生成失败时自动重试次数（0–10） |
 | `retry_threshold` | 浮点 | 6.0 | 检测异常生成的阈值 |
 | `torch_compile` | 开关 | Standard | 启用 `torch.compile` 优化 |
@@ -105,16 +110,18 @@
 | `lora_name` | 下拉 | None | 从 `models/loras` 选择 LoRA 检查点 |
 | `voice_description` | 字符串 | — | 风格控制提示（可选），如"语速稍快，欢快语气"。自动加括号并拼接到文本前 |
 | `text` | 字符串 | — | 要合成的目标文本 |
-| `reference_audio` | 音频 | **必填** | 声音克隆的参考音频 |
-| `prompt_text` | 字符串 | — | 参考音频的文字稿。填写后启用**终极克隆**（最高保真度）。留空则为**可控克隆** |
+| `reference_audio` | 音频 | **必填** | 声音克隆的参考音频（最长 50 秒） |
+| `prompt_text` | 字符串 | — | 参考音频的文字稿。填写后启用**终极克隆**（最高保真度）。留空则为**可控克隆**，或开启 `enable_asr` 自动转录 |
 | `cfg_value` | 浮点 | 2.0 | 无分类器引导比例（1.0–10.0） |
 | `inference_timesteps` | 整数 | 10 | 扩散步数。越多=质量越好，速度越慢 |
 | `max_tokens` | 整数 | 4096 | 最大生成长度（64–8192） |
 | `normalize_text` | 开关 | Normalize | 自动处理数字、缩写、标点 |
+| `enable_denoiser` | 开关 | Off | 克隆前使用 ZipEnhancer 对参考音频降噪。需安装 `modelscope`。开启后输出响度自动归一化到 -20 LUFS |
 | `seed` | 整数 | 42 | 可复现种子（-1 = 随机） |
 | `force_offload` | 开关 | Auto | 生成后强制卸载显存 |
 | `dtype` | 下拉 | auto | 强制模型数据类型。Auto 使用模型原生 dtype |
 | `device` | 下拉 | cuda | 推理设备（cuda、mps、cpu） |
+| `enable_asr` | 开关 | Off | 使用 SenseVoiceSmall 自动转录参考音频。需安装 `funasr`。已提供 `prompt_text` 时自动跳过。首次运行下载模型（约400MB） |
 | `retry_max_attempts` | 整数 | 3 | 生成失败时自动重试次数（0–10） |
 | `retry_threshold` | 浮点 | 6.0 | 检测异常生成的阈值 |
 | `torch_compile` | 开关 | Standard | 启用 `torch.compile` 优化 |
@@ -140,11 +147,27 @@
 2. 将 `Load Audio` 节点连接到 `reference_audio`。
 3. 在 `text` 中输入目标文本。
 4. （可选）在 `voice_description` 中添加风格引导（如"语速稍快，欢快语气"）。
-5. `prompt_text` 留空。
+5. `prompt_text` 留空。可开启 `enable_asr` 自动转录参考音频。
 
 ### 终极克隆（最高保真度）
 1. 同上操作，但还需在 `prompt_text` 中提供参考音频的**精确文字稿**。
 2. 模型使用音频续写克隆技术，精确复刻每一个声音细节。
+3. 如果没有文字稿，开启 `enable_asr` 即可自动转录并进入终极克隆模式。
+
+### ASR 自动转录
+在任一节点开启 `enable_asr`，即可使用 [SenseVoiceSmall](https://huggingface.co/FunAudioLLM/SenseVoiceSmall) 模型自动转录参考音频。首次运行会下载模型（约400MB）。需安装 `pip install funasr`。
+
+开启 `enable_asr` 时：
+- 若 `prompt_text` 为空，ASR 会自动运行并填充文字稿（进入终极克隆模式）
+- 若已提供 `prompt_text`，ASR 将被跳过，使用手动文字稿
+
+### 参考音频降噪
+在 Voice Clone 节点开启 `enable_denoiser` 可在克隆前对参考音频进行降噪处理。使用 [ZipEnhancer](https://modelscope.cn/models/iic/speech_zipenhancer_ans_multiloss_16k_base)（通过 ModelScope）。需安装 `pip install modelscope`。
+
+降噪开启时，输出音频响度会自动归一化到 -20 LUFS，确保音量一致。
+
+### 参考音频时长限制
+参考音频上传时会自动验证时长——超过 **50 秒** 的音频将被拒绝并提示错误。建议使用 5-15 秒干净、连续的语音片段。
 
 ## LoRA 支持
 

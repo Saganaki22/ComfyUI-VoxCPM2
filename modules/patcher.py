@@ -77,7 +77,7 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
                 del model_instance
 
         # Clear the loader cache entry so the model is fully released
-        cache_key = f"{self.model.model_name}_opt{self.model.torch_compile}_dtype{self.model.dtype}"
+        cache_key = f"{self.model.model_name}_opt{self.model.torch_compile}_compile{self.model.torch_compile}_dtype{self.model.dtype}"
         if cache_key in LOADED_MODELS_CACHE:
             del LOADED_MODELS_CACHE[cache_key]
 
@@ -91,7 +91,7 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
         logger.info("Force offload complete.")
 
     def unpatch_model(self, device_to=None, unpatch_weights=True, *args, **kwargs):
-        """Gentle offload — skips manual CPU move when VBAR/aimdo handles it."""
+        """Gentle offload — moves model to offload device but keeps it cached for fast reload."""
         if unpatch_weights and self.is_loaded:
             if self._vbar_active or self._aimdo_auto:
                 mode = "VBAR" if self._vbar_active else "aimdo auto"
@@ -102,7 +102,8 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
                 except Exception:
                     pass
 
-            self.model.model = None
+            # Keep self.model.model alive so LOADED_MODELS_CACHE stays valid.
+            # patch_model will re-use the cached model on next load instead of reloading from disk.
             gc.collect()
             model_management.soft_empty_cache()
 

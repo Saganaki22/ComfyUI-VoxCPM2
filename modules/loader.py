@@ -71,7 +71,7 @@ def load_model(model_name: str, optimize: bool = False, torch_compile: bool = Fa
     Load a VoxCPM model, downloading it if necessary. Caches the loaded model instance.
     Uses the pip-installed voxcpm package for model loading and inference.
     """
-    cache_key = f"{model_name}_opt{optimize}_dtype{dtype}"
+    cache_key = f"{model_name}_opt{optimize}_compile{torch_compile}_dtype{dtype}"
     if cache_key in LOADED_MODELS_CACHE:
         logger.info(f"Using cached VoxCPM model instance: {cache_key}")
         return LOADED_MODELS_CACHE[cache_key]
@@ -122,6 +122,7 @@ def load_model(model_name: str, optimize: bool = False, torch_compile: bool = Fa
 
     model_instance = VoxCPMPipeline(
         voxcpm_model_path=voxcpm_path,
+        zipenhancer_model_path=None,
         enable_denoiser=False,
         optimize=optimize,
         lora_config=lora_config,

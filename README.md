@@ -44,6 +44,10 @@ This custom node provides two inference nodes and a full LoRA training pipeline,
 * **Native LoRA Training** — Train LoRA adapters directly within ComfyUI
 * **Automatic Model Management** — Models are downloaded and managed by ComfyUI to save VRAM
 * **Torch Compile** — Optional `torch.compile` optimization for faster inference
+* **ASR Auto-Transcription** — Auto-transcribe reference audio using SenseVoiceSmall (requires `funasr`)
+* **Reference Audio Denoiser** — Optional ZipEnhancer denoising for cleaner cloning (requires `modelscope`)
+* **Loudness Normalization** — Auto-normalize output loudness when denoiser is active
+* **Audio Duration Validation** — Rejects reference audio over 50 seconds to prevent quality issues
 
 ## Installation
 
@@ -94,6 +98,7 @@ Text-to-speech with optional voice design. No reference audio needed.
 | `force_offload` | Toggle | Auto | Force VRAM offload after generation |
 | `dtype` | Combo | auto | Model dtype: `auto` (native bf16, fp16 on older GPUs), `bf16`, `fp16` |
 | `device` | Combo | cuda | Inference device (cuda, mps, cpu) |
+| `enable_asr` | Toggle | Off | Auto-transcribe reference audio using SenseVoiceSmall ASR. Requires `funasr`. First run downloads the model (~400MB) |
 | `retry_max_attempts` | Int | 3 | Auto-retries on bad generation (0–10) |
 | `retry_threshold` | Float | 6.0 | Threshold for detecting bad generations |
 | `torch_compile` | Toggle | Standard | Enable `torch.compile` optimization |
@@ -108,16 +113,18 @@ Voice cloning with controllable and ultimate modes.
 | `lora_name` | Combo | None | LoRA checkpoint from `models/loras` |
 | `voice_description` | String | — | Style control (e.g. "slightly faster, cheerful tone"). Auto-wrapped in parentheses and prepended to text |
 | `text` | String | — | Target text to synthesize |
-| `reference_audio` | Audio | **Required** | Reference audio for voice cloning |
-| `prompt_text` | String | — | Transcript of reference audio. Provide for **Ultimate Cloning** (highest fidelity). Leave empty for **Controllable Cloning** |
+| `reference_audio` | Audio | **Required** | Reference audio for voice cloning (max 50 seconds) |
+| `prompt_text` | String | — | Transcript of reference audio. Provide for **Ultimate Cloning** (highest fidelity). Leave empty for **Controllable Cloning**, or enable `enable_asr` to auto-transcribe |
 | `cfg_value` | Float | 2.0 | Classifier-Free Guidance scale (1.0–10.0) |
 | `inference_timesteps` | Int | 10 | Diffusion steps. More = better quality, slower |
 | `max_tokens` | Int | 4096 | Max generation length (64–8192) |
 | `normalize_text` | Toggle | Normalize | Auto-process numbers, abbreviations, punctuation |
+| `enable_denoiser` | Toggle | Off | Denoise reference audio before cloning using ZipEnhancer. Requires `modelscope`. Output loudness is auto-normalized to -20 LUFS |
 | `seed` | Int | -1 | Reproducibility seed (-1 = random) |
 | `force_offload` | Toggle | Auto | Force VRAM offload after generation |
 | `dtype` | Combo | auto | Model dtype: `auto` (native bf16, fp16 on older GPUs), `bf16`, `fp16` |
 | `device` | Combo | cuda | Inference device (cuda, mps, cpu) |
+| `enable_asr` | Toggle | Off | Auto-transcribe reference audio using SenseVoiceSmall ASR. Requires `funasr`. Ignored when `prompt_text` is provided. First run downloads the model (~400MB) |
 | `retry_max_attempts` | Int | 3 | Auto-retries on bad generation (0–10) |
 | `retry_threshold` | Float | 6.0 | Threshold for detecting bad generations |
 | `torch_compile` | Toggle | Standard | Enable `torch.compile` optimization |
@@ -143,11 +150,27 @@ The description is automatically wrapped in parentheses and prepended to your te
 2. Connect a `Load Audio` node to `reference_audio`.
 3. Enter your target text in `text`.
 4. Optionally add style guidance in `voice_description` (e.g. "slightly faster, cheerful tone").
-5. Leave `prompt_text` empty.
+5. Leave `prompt_text` empty. Optionally enable `enable_asr` to auto-transcribe the reference audio.
 
 ### Ultimate Cloning (Highest Fidelity)
 1. Same as above, but also provide the **exact transcript** of the reference audio in `prompt_text`.
 2. The model uses audio-continuation cloning to reproduce every vocal nuance.
+3. If you don't have a transcript, enable `enable_asr` — it will auto-transcribe and enter Ultimate mode automatically.
+
+### ASR Auto-Transcription
+Enable `enable_asr` on either node to automatically transcribe reference audio using the [SenseVoiceSmall](https://huggingface.co/FunAudioLLM/SenseVoiceSmall) model. The first run downloads the model (~400MB). Requires `pip install funasr`.
+
+When `enable_asr` is on:
+- If `prompt_text` is empty, ASR runs and fills it automatically (enters Ultimate Cloning)
+- If `prompt_text` is already provided, ASR is skipped and the manual transcript is used instead
+
+### Reference Audio Denoiser
+Enable `enable_denoiser` on the Voice Clone node to clean up noisy reference audio before cloning. Uses [ZipEnhancer](https://modelscope.cn/models/iic/speech_zipenhancer_ans_multiloss_16k_base) via ModelScope. Requires `pip install modelscope`.
+
+When the denoiser is active, the output audio loudness is automatically normalized to -20 LUFS for consistent volume.
+
+### Reference Audio Duration
+Reference audio is validated on upload — audio longer than **50 seconds** will be rejected with an error. For best results, use 5–15 seconds of clean, continuous speech.
 
 ## LoRA Support
 

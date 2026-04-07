@@ -10,8 +10,8 @@ from transformers import get_cosine_schedule_with_warmup
 import comfy.model_management as model_management
 from comfy.utils import ProgressBar
 
-from voxcpm.model.voxcpm2 import VoxCPM2Model as VoxCPMModel
-from voxcpm.model.voxcpm2 import LoRAConfig
+from voxcpm.model.voxcpm import VoxCPMModel
+from voxcpm.model.voxcpm import LoRAConfig
 from voxcpm.training import (
     Accelerator,
     BatchProcessor,
@@ -136,7 +136,7 @@ def run_lora_training(
         drop_last=True,
     )
 
-    dataset_cnt = int(max(train_ds["dataset_id"])) + 1 if "dataset_id" in train_ds.column_names else 1
+    dataset_cnt = len(set(train_ds["dataset_id"])) if "dataset_id" in train_ds.column_names else 1
     
     batch_processor = BatchProcessor(
         config=base_model.config,
@@ -146,7 +146,7 @@ def run_lora_training(
     )
     
     del base_model.audio_vae
-    
+
     model = accelerator.prepare_model(base_model)
     unwrapped_model = accelerator.unwrap(model)
     unwrapped_model.train()
@@ -166,110 +166,113 @@ def run_lora_training(
     logger.info("Starting training...")
     pbar = ProgressBar(max_steps)
     pbar.update(0)
-    
+
     train_iter = iter(train_loader)
     data_epoch = 0
     grad_accum_steps = train_config.get("grad_accum_steps", 1)
     lambdas = {"loss/diff": 1.0, "loss/stop": 1.0}
 
-    def get_next_batch():
-        nonlocal train_iter, data_epoch
-        try:
-            return next(train_iter)
-        except StopIteration:
-            data_epoch += 1
-            sampler = getattr(train_loader, 'sampler', None)
-            if hasattr(sampler, 'set_epoch'):
-                sampler.set_epoch(data_epoch)
-            train_iter = iter(train_loader)
-            return next(train_iter)
+    try:
+        def get_next_batch():
+            nonlocal train_iter, data_epoch
+            try:
+                return next(train_iter)
+            except StopIteration:
+                data_epoch += 1
+                sampler = getattr(train_loader, 'sampler', None)
+                if hasattr(sampler, 'set_epoch'):
+                    sampler.set_epoch(data_epoch)
+                train_iter = iter(train_loader)
+                return next(train_iter)
 
-    with torch.enable_grad():
-        for step in range(max_steps):
-            model_management.throw_exception_if_processing_interrupted()
-            
-            optimizer.zero_grad(set_to_none=True)
-            
-            total_loss_val = 0.0
-            did_backward = False
-            
-            for micro_step in range(grad_accum_steps):
-                batch = get_next_batch()
-                processed = batch_processor(batch)
-                
-                is_last = (micro_step == grad_accum_steps - 1)
-                sync_context = contextlib.nullcontext() if is_last else accelerator.no_sync()
-                
-                with sync_context:
-                    with accelerator.autocast(dtype=torch.bfloat16):
-                        outputs = model(
-                            processed["text_tokens"],
-                            processed["text_mask"],
-                            processed["audio_feats"],
-                            processed["audio_mask"],
-                            processed["loss_mask"],
-                            processed["position_ids"],
-                            processed["labels"],
-                            progress=step / max(1, max_steps),
-                        )
-                    
-                    total_loss = 0.0
-                    for key, value in outputs.items():
-                        if key.startswith("loss/"):
-                            weight = lambdas.get(key, 1.0)
-                            if value.numel() > 1:
-                                value = value.mean()
-                            loss_value = value * weight / grad_accum_steps
-                            total_loss = total_loss + loss_value
-                    
-                    if total_loss.grad_fn is not None:
-                        accelerator.backward(total_loss)
-                        total_loss_val += total_loss.item() * grad_accum_steps
-                        did_backward = True
+        with torch.enable_grad():
+            for step in range(max_steps):
+                model_management.throw_exception_if_processing_interrupted()
+
+                optimizer.zero_grad(set_to_none=True)
+
+                total_loss_val = 0.0
+                did_backward = False
+
+                for micro_step in range(grad_accum_steps):
+                    batch = get_next_batch()
+                    processed = batch_processor(batch)
+
+                    is_last = (micro_step == grad_accum_steps - 1)
+                    sync_context = contextlib.nullcontext() if is_last else accelerator.no_sync()
+
+                    with sync_context:
+                        with accelerator.autocast(dtype=torch.bfloat16):
+                            outputs = model(
+                                processed["text_tokens"],
+                                processed["text_mask"],
+                                processed["audio_feats"],
+                                processed["audio_mask"],
+                                processed["loss_mask"],
+                                processed["position_ids"],
+                                processed["labels"],
+                                progress=step / max(1, max_steps),
+                            )
+
+                        total_loss = 0.0
+                        for key, value in outputs.items():
+                            if key.startswith("loss/"):
+                                weight = lambdas.get(key, 1.0)
+                                if value.numel() > 1:
+                                    value = value.mean()
+                                loss_value = value * weight / grad_accum_steps
+                                total_loss = total_loss + loss_value
+
+                        if total_loss.grad_fn is not None:
+                            accelerator.backward(total_loss)
+                            total_loss_val += total_loss.item() * grad_accum_steps
+                            did_backward = True
+                        else:
+                            if step == 0:
+                                logger.error(f"Step 0: Loss has no grad_fn! Loss requires_grad: {total_loss.requires_grad}")
+                            logger.warning(f"Step {step}: Skipping backward (no grad_fn)")
+
+                if did_backward:
+                    scaler = getattr(accelerator, "scaler", None)
+                    if scaler is not None:
+                        scaler.unscale_(optimizer)
+
+                    torch.nn.utils.clip_grad_norm_(unwrapped_model.parameters(), max_norm=1.0)
+
+                    accelerator.step(optimizer)
+                    accelerator.update()
+                    scheduler.step()
+
+                    pbar.update(1)
+
+                if step % 10 == 0:
+                    lr_val = optimizer.param_groups[0]['lr']
+                    print(f"Step {step}/{max_steps}, Loss: {total_loss_val:.4f}, LR: {lr_val:.8f}")
+
+                if (step + 1) % save_every_steps == 0 or (step + 1) == max_steps:
+                    save_path = os.path.join(output_dir, f"{output_name}_step_{step+1}.safetensors")
+
+                    full_state = unwrapped_model.state_dict()
+                    lora_state = {k: v for k, v in full_state.items() if "lora_" in k}
+
+                    if SAFETENSORS_AVAILABLE:
+                        save_file(lora_state, save_path)
                     else:
-                        if step == 0:
-                            logger.error(f"Step 0: Loss has no grad_fn! Loss requires_grad: {total_loss.requires_grad}")
-                        logger.warning(f"Step {step}: Skipping backward (no grad_fn)")
+                        torch.save({"state_dict": lora_state}, save_path.replace(".safetensors", ".ckpt"))
 
-            if did_backward:
-                scaler = getattr(accelerator, "scaler", None)
-                if scaler is not None:
-                    scaler.unscale_(optimizer)
-                
-                torch.nn.utils.clip_grad_norm_(unwrapped_model.parameters(), max_norm=1.0)
-                
-                accelerator.step(optimizer)
-                accelerator.update()
-                scheduler.step()
-                
-                pbar.update(1)
-            
-            if step % 10 == 0:
-                lr_val = optimizer.param_groups[0]['lr']
-                print(f"Step {step}/{max_steps}, Loss: {total_loss_val:.4f}, LR: {lr_val:.8f}")
+                    lora_info = {
+                        "base_model": pretrained_path,
+                        "lora_config": lora_cfg.model_dump() if hasattr(lora_cfg, "model_dump") else vars(lora_cfg),
+                    }
+                    config_path = os.path.join(output_dir, "lora_config.json")
+                    with open(config_path, "w", encoding="utf-8") as f:
+                        json.dump(lora_info, f, indent=2)
 
-            if (step + 1) % save_every_steps == 0 or (step + 1) == max_steps:
-                save_path = os.path.join(output_dir, f"{output_name}_step_{step+1}.safetensors")
-                
-                full_state = unwrapped_model.state_dict()
-                lora_state = {k: v for k, v in full_state.items() if "lora_" in k}
-                
-                if SAFETENSORS_AVAILABLE:
-                    save_file(lora_state, save_path)
-                else:
-                    torch.save({"state_dict": lora_state}, save_path.replace(".safetensors", ".ckpt"))
-                
-                lora_info = {
-                    "base_model": pretrained_path,
-                    "lora_config": lora_cfg.model_dump() if hasattr(lora_cfg, "model_dump") else vars(lora_cfg),
-                }
-                config_path = os.path.join(output_dir, "lora_config.json")
-                with open(config_path, "w", encoding="utf-8") as f:
-                    json.dump(lora_info, f, indent=2)
-                
-                logger.info(f"Saved checkpoint: {save_path}")
+                    logger.info(f"Saved checkpoint: {save_path}")
 
-    del model, optimizer, scheduler, train_loader, base_model
-    model_management.soft_empty_cache()
-    
+    finally:
+        del batch_processor  # releases audio_vae reference
+        del model, optimizer, scheduler, train_loader
+        model_management.soft_empty_cache()
+
     return output_dir

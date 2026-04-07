@@ -49,18 +49,21 @@ class VoxCPM:
         # Denoiser handling: largely disabled for ComfyUI to keep dependencies light
         # unless specifically requested and available.
         self.denoiser = None
-        if enable_denoiser and zipenhancer_model_path is not None:
-            try:
-                from .zipenhancer import ZipEnhancer
-                self.denoiser = ZipEnhancer(zipenhancer_model_path)
-            except ImportError:
-                # print("[ComfyUI-VoxCPM] Warning: ZipEnhancer dependencies not found. Denoiser disabled.")
-                self.denoiser = None
+        self._denoiser_model_path = zipenhancer_model_path or "iic/speech_zipenhancer_ans_multiloss_16k_base"
+        if enable_denoiser:
+            self._init_denoiser()
 
-        if optimize:
-            # We skip the warmup generation here for ComfyUI to avoid slowing down node loading.
-            # The first generation will be slightly slower.
-            pass
+    def _init_denoiser(self):
+        """Lazily initialize the ZipEnhancer denoiser."""
+        if self.denoiser is not None:
+            return True
+        try:
+            from .zipenhancer import ZipEnhancer
+            self.denoiser = ZipEnhancer(self._denoiser_model_path)
+            return True
+        except ImportError:
+            print("[VoxCPM] Warning: modelscope not installed. Denoiser disabled. Install with: pip install modelscope")
+            return False
 
     @classmethod
     def from_pretrained(cls,
@@ -150,7 +153,7 @@ class VoxCPM:
         
         try:
             if has_prompt_audio and prompt_text is not None:
-                if denoise and self.denoiser is not None and prompt_wav_path is not None:
+                if denoise and prompt_wav_path is not None and self._init_denoiser():
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
                         temp_prompt_wav_path = tmp_file.name
                     self.denoiser.enhance(prompt_wav_path, output_path=temp_prompt_wav_path)
