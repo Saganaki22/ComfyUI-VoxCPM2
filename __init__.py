@@ -3,6 +3,37 @@ import logging
 import folder_paths
 from .modules.model_info import AVAILABLE_VOXCPM_MODELS, MODEL_CONFIGS
 
+# ---------------------------------------------------------------------------
+# TorchCodec compatibility — newer torchaudio uses torchcodec as default
+# backend, which doesn't work on ROCm. Patch it to fall back to standard
+# torchaudio.load/save if torchcodec isn't available or functional.
+# ---------------------------------------------------------------------------
+try:
+    import torchaudio
+    if not hasattr(torchaudio, 'load_with_torchcodec'):
+        # Older torchaudio — nothing to patch
+        pass
+    else:
+        try:
+            # Test if torchcodec actually works
+            import torchcodec  # noqa: F401
+        except (ImportError, RuntimeError):
+            # torchcodec missing or broken — monkeypatch the *with_torchcodec
+            # wrappers to use standard torchaudio.load/save instead
+            _orig_load = torchaudio.load
+            _orig_save = torchaudio.save
+
+            def _fallback_load(path, *args, **kwargs):
+                return _orig_load(path, *args, **kwargs)
+
+            def _fallback_save(path, tensor, sample_rate, *args, **kwargs):
+                return _orig_save(path, tensor, sample_rate, *args, **kwargs)
+
+            torchaudio.load_with_torchcodec = _fallback_load
+            torchaudio.save_with_torchcodec = _fallback_save
+except Exception:
+    pass
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = False

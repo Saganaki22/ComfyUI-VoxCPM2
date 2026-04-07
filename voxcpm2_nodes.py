@@ -231,7 +231,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
                 io.Boolean.Input("force_offload", default=False, label_on="Force Offload", label_off="Auto", tooltip="Fully unload model from VRAM and RAM after generation."),
                 io.Combo.Input("dtype", options=["auto", "bf16", "fp16"], default="auto", tooltip="Model dtype. Auto uses native bf16 (fp16 on older GPUs)."),
                 io.Combo.Input("device", options=available_devices, default=default_device, tooltip="Inference device."),
-                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile + triton optimization. Faster on Linux, slower on Windows."),
+                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization (first run compiles kernels, subsequent runs are faster)."),
             ],
             outputs=[
                 io.Audio.Output(display_name="Generated Audio"),
@@ -337,7 +337,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
                 io.Boolean.Input("enable_asr", default=False, label_on="ASR", label_off="Off", tooltip="Auto-transcribe reference audio to text using SenseVoiceSmall ASR. Requires funasr package. Ignored when prompt_text is provided. First run downloads the model (~400MB)."),
                 io.Int.Input("retry_max_attempts", default=3, min=0, max=10, step=1, tooltip="Auto-retry on bad generation (babbling/silence). 0 = no retries."),
                 io.Float.Input("retry_threshold", default=6.0, min=2.0, max=20.0, step=0.1, tooltip="Threshold for detecting bad generations based on audio/text length ratio."),
-                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile + triton optimization. Faster on Linux, slower on Windows."),
+                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization (first run compiles kernels, subsequent runs are faster)."),
             ],
             outputs=[
                 io.Audio.Output(display_name="Cloned Audio"),

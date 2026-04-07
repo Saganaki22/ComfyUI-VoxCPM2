@@ -267,12 +267,23 @@ class VoxCPM2Model(nn.Module):
     def optimize(self, disable: bool = False):
         if disable:
             return self
+
+        cuda_major = int(torch.version.cuda.split('.')[0]) if torch.cuda.is_available() and torch.version.cuda else 0
+
+        # CUDA 13+ (PyTorch 2.10+cu130) has Inductor hangs with reduce-overhead
+        if cuda_major >= 13:
+            mode, fullgraph = "default", False
+            print("[ComfyUI-VoxCPM] CUDA 13+ detected — using default torch.compile mode for compatibility", file=sys.stderr)
+        else:
+            mode, fullgraph = "reduce-overhead", True
+            print("[ComfyUI-VoxCPM] Using reduce-overhead + fullgraph (CUDA graphs) for maximum speedup", file=sys.stderr)
+
         try:
-            import triton  # noqa: F401
-            self.base_lm.forward_step = torch.compile(self.base_lm.forward_step)
-            self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step)
-            self.feat_encoder = torch.compile(self.feat_encoder)
-            self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator)
+            self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self.feat_encoder = torch.compile(self.feat_encoder, mode=mode)
+            self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode=mode, fullgraph=fullgraph)
+            print("[ComfyUI-VoxCPM] torch.compile wrappers applied — kernels compile on first inference", file=sys.stderr)
         except Exception as e:
             print(f"Warning: torch.compile disabled - {e}", file=sys.stderr)
         return self

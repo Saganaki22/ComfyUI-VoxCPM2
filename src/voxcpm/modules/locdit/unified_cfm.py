@@ -92,31 +92,34 @@ class UnifiedCFM(torch.nn.Module):
     ):
         t, _, dt = t_span[0], t_span[-1], t_span[0] - t_span[1]
 
-        sol = []
+        b = x.size(0)
+
+        # Pre-allocate CFG double-batch tensors once — reused across all Euler steps
+        x_in = torch.empty([2 * b, self.in_channels, x.size(2)], device=x.device, dtype=x.dtype)
+        mu_in = torch.zeros([2 * b, mu.size(1)], device=x.device, dtype=x.dtype)
+        mu_in[:b] = mu  # Conditional mu; unconditional half stays zero
+        t_in = torch.empty([2 * b], device=x.device, dtype=x.dtype)
+        cond_in = torch.empty([2 * b, self.in_channels, cond.size(2)], device=x.device, dtype=x.dtype)
+        cond_in[:b], cond_in[b:] = cond, cond  # Same cond for both CFG branches
+        if self.mean_mode:
+            dt_in = torch.empty([2 * b], device=x.device, dtype=x.dtype)
+        else:
+            dt_in = torch.zeros([2 * b], device=x.device, dtype=x.dtype)
+
         zero_init_steps = max(1, int(len(t_span) * 0.04))
         for step in range(1, len(t_span)):
             if use_cfg_zero_star and step <= zero_init_steps:
                 dphi_dt = torch.zeros_like(x)
             else:
                 # Classifier-Free Guidance inference introduced in VoiceBox
-                b = x.size(0)
-                x_in = torch.zeros([2 * b, self.in_channels, x.size(2)], device=x.device, dtype=x.dtype)
-                mu_in = torch.zeros([2 * b, mu.size(1)], device=x.device, dtype=x.dtype)
-                t_in = torch.zeros([2 * b], device=x.device, dtype=x.dtype)
-                dt_in = torch.zeros([2 * b], device=x.device, dtype=x.dtype)
-                cond_in = torch.zeros([2 * b, self.in_channels, cond.size(2)], device=x.device, dtype=x.dtype)
                 x_in[:b], x_in[b:] = x, x
-                mu_in[:b] = mu
                 t_in[:b], t_in[b:] = t.unsqueeze(0), t.unsqueeze(0)
-                dt_in[:b], dt_in[b:] = dt.unsqueeze(0), dt.unsqueeze(0)
-                # not used now
-                if not self.mean_mode:
-                    dt_in = torch.zeros_like(dt_in)
-                cond_in[:b], cond_in[b:] = cond, cond
+                if self.mean_mode:
+                    dt_in[:b], dt_in[b:] = dt.unsqueeze(0), dt.unsqueeze(0)
 
                 dphi_dt = self.estimator(x_in, mu_in, t_in, cond_in, dt_in)
                 dphi_dt, cfg_dphi_dt = torch.split(dphi_dt, [x.size(0), x.size(0)], dim=0)
-                
+
                 if use_cfg_zero_star:
                     positive_flat = dphi_dt.view(b, -1)
                     negative_flat = cfg_dphi_dt.view(b, -1)
@@ -124,16 +127,15 @@ class UnifiedCFM(torch.nn.Module):
                     st_star = st_star.view(b, *([1] * (len(dphi_dt.shape) - 1)))
                 else:
                     st_star = 1.0
-                
+
                 dphi_dt = cfg_dphi_dt * st_star + cfg_value * (dphi_dt - cfg_dphi_dt * st_star)
 
             x = x - dt * dphi_dt
             t = t - dt
-            sol.append(x)
             if step < len(t_span) - 1:
                 dt = t - t_span[step + 1]
 
-        return sol[-1]
+        return x
 
     # ------------------------------------------------------------------ #
     # Training loss

@@ -238,12 +238,21 @@ class VoxCPMModel(nn.Module):
     def optimize(self, disable: bool = False):
         if disable:
             return self
+
+        cuda_major = int(torch.version.cuda.split('.')[0]) if torch.cuda.is_available() and torch.version.cuda else 0
+
+        if cuda_major >= 13:
+            mode, fullgraph = "default", False
+            print("[ComfyUI-VoxCPM] CUDA 13+ detected — using default torch.compile mode for compatibility", file=sys.stderr)
+        else:
+            mode, fullgraph = "reduce-overhead", True
+            print("[ComfyUI-VoxCPM] Using reduce-overhead + fullgraph (CUDA graphs) for maximum speedup", file=sys.stderr)
+
         try:
-            import triton
-            self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode="reduce-overhead", fullgraph=True)
-            self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode="reduce-overhead", fullgraph=True)
-            self.feat_encoder = torch.compile(self.feat_encoder, mode="reduce-overhead", fullgraph=True)
-            self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode="reduce-overhead", fullgraph=True)
+            self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self.feat_encoder = torch.compile(self.feat_encoder, mode=mode)
+            self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode=mode, fullgraph=fullgraph)
         except Exception as e:
             print(f"Warning: torch.compile disabled - {e}")
         return self
