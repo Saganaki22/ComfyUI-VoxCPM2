@@ -1,6 +1,11 @@
 import os
 import logging
+import warnings
 import folder_paths
+
+# Silence noisy PyTorch deprecation/inductor warnings
+warnings.filterwarnings("ignore", message=".*weight_norm.*deprecated.*", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*Online softmax is disabled.*")
 from .modules.model_info import AVAILABLE_VOXCPM_MODELS, MODEL_CONFIGS
 
 # ---------------------------------------------------------------------------
