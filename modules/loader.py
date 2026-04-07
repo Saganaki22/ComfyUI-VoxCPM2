@@ -130,6 +130,8 @@ def load_model(model_name: str, optimize: bool = False, torch_compile: bool = Fa
     # Resolve effective dtype and convert if needed
     effective_dtype = _resolve_dtype(dtype)
     config_dtype = getattr(model_instance.tts_model.config, 'dtype', 'bfloat16')
+    # Normalize to short form so "bfloat16" matches "bf16"
+    config_dtype = config_dtype.replace("float", "f").replace("torch.", "")
 
     if effective_dtype == "auto":
         # CPU mode or no override — leave as-is
