@@ -6,7 +6,7 @@ This guide details how to fine-tune VoxCPM2 models using LoRA (Low-Rank Adaptati
 
 ## Prerequisites
 
-1.  **Hardware**: NVIDIA GPU with at least 8GB VRAM (24GB recommended for higher batch sizes).
+1.  **Hardware**: NVIDIA GPU with at least 12GB VRAM (24GB recommended for higher batch sizes).
 2.  **Dataset**: A collection of high-quality `.wav` audio files and corresponding text transcripts.
 3.  **Base Model**: Ensure `VoxCPM2` is downloaded in `models/tts/VoxCPM`.
 4.  **Training Dependencies**: The training nodes require two extra packages not installed by default (`argbind` and `datasets`). Install them using the method that matches your setup:
