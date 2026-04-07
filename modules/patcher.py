@@ -71,12 +71,10 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
 
         if self.is_loaded:
             logger.info(f"Force offloading VoxCPM model '{self.cache_key}' from VRAM and RAM...")
-            try:
-                self.model.model.tts_model.to("cpu")
-            except Exception:
-                pass
-
+            model_instance = self.model.model
             self.model.model = None
+            if model_instance is not None:
+                del model_instance
 
         # Clear the loader cache entry so the model is fully released
         cache_key = f"{self.model.model_name}_opt{self.model.torch_compile}_dtype{self.model.dtype}"
