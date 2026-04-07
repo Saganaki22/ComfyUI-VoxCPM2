@@ -1,57 +1,57 @@
 {
   "id": "f73dbe0a-5e3f-44d9-9f89-28b11fd27083",
   "revision": 0,
-  "last_node_id": 25,
-  "last_link_id": 30,
+  "last_node_id": 27,
+  "last_link_id": 33,
   "nodes": [
     {
-      "id": 3,
-      "type": "LoadAudio",
+      "id": 14,
+      "type": "VoxCPM2_DatasetMaker",
       "pos": [
-        1980.3060763579344,
-        3415.236682991514
+        2241.7228126179484,
+        4574.743341778312
       ],
       "size": [
-        282.798828125,
-        136
+        270,
+        82
       ],
       "flags": {},
       "order": 0,
-      "mode": 0,
+      "mode": 4,
       "inputs": [],
       "outputs": [
         {
-          "name": "AUDIO",
-          "type": "AUDIO",
+          "name": "Dataset Path",
+          "type": "STRING",
           "links": [
-            28
+            22
           ]
         }
       ],
       "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.17.0",
-        "Node name for S&R": "LoadAudio"
+        "cnr_id": "ComfyUI-VoxCPM2",
+        "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
+        "Node name for S&R": "VoxCPM2_DatasetMaker",
+        "aux_id": "Saganaki22/ComfyUI-VoxCPM"
       },
       "widgets_values": [
-        "sample-5.mp3",
-        null,
-        null
+        "",
+        "train.jsonl"
       ]
     },
     {
       "id": 15,
       "type": "VoxCPM2_LoraTrainer",
       "pos": [
-        2669.4506631394493,
-        4190.6940916341255
+        2645.6595793705715,
+        4204.289015166515
       ],
       "size": [
         288.1375859231198,
         178
       ],
       "flags": {},
-      "order": 7,
+      "order": 6,
       "mode": 4,
       "inputs": [
         {
@@ -76,9 +76,10 @@
         }
       ],
       "properties": {
-        "aux_id": "Saganaki22/ComfyUI-VoxCPM",
+        "cnr_id": "ComfyUI-VoxCPM2",
         "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
-        "Node name for S&R": "VoxCPM2_LoraTrainer"
+        "Node name for S&R": "VoxCPM2_LoraTrainer",
+        "aux_id": "Saganaki22/ComfyUI-VoxCPM"
       },
       "widgets_values": [
         "VoxCPM2",
@@ -90,18 +91,42 @@
       ]
     },
     {
+      "id": 25,
+      "type": "MarkdownNote",
+      "pos": [
+        2589.5037970981516,
+        4558.306251554006
+      ],
+      "size": [
+        365.1808620351203,
+        102.92826147635697
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 4,
+      "inputs": [],
+      "outputs": [],
+      "title": "|",
+      "properties": {},
+      "widgets_values": [
+        "## Please read [Full LoRA Training Guide](https://github.com/Saganaki22/ComfyUI-VoxCPM2/blob/main/docs/readme-lora-training.md)\n## you will need to install extra requirements\n\n## 12-24 GB VRAM\n"
+      ],
+      "color": "#c09430",
+      "bgcolor": "rgba(24,24,27,.9)"
+    },
+    {
       "id": 16,
       "type": "VoxCPM2_TrainConfig",
       "pos": [
-        2235.5384977154695,
-        4194.336606706544
+        2239.6852299839998,
+        4190.189874438013
       ],
       "size": [
         270,
         322
       ],
       "flags": {},
-      "order": 1,
+      "order": 2,
       "mode": 4,
       "inputs": [],
       "outputs": [
@@ -114,9 +139,10 @@
         }
       ],
       "properties": {
-        "aux_id": "Saganaki22/ComfyUI-VoxCPM",
+        "cnr_id": "ComfyUI-VoxCPM2",
         "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
-        "Node name for S&R": "VoxCPM2_TrainConfig"
+        "Node name for S&R": "VoxCPM2_TrainConfig",
+        "aux_id": "Saganaki22/ComfyUI-VoxCPM"
       },
       "widgets_values": [
         0.0001,
@@ -134,48 +160,49 @@
       ]
     },
     {
-      "id": 14,
-      "type": "VoxCPM2_DatasetMaker",
+      "id": 3,
+      "type": "LoadAudio",
       "pos": [
-        2241.7228126179484,
-        4574.743341778312
+        1979.5520790188466,
+        3400.594967395509
       ],
       "size": [
-        270,
-        82
+        282.798828125,
+        136
       ],
       "flags": {},
-      "order": 2,
-      "mode": 4,
+      "order": 3,
+      "mode": 0,
       "inputs": [],
       "outputs": [
         {
-          "name": "Dataset Path",
-          "type": "STRING",
+          "name": "AUDIO",
+          "type": "AUDIO",
           "links": [
-            22
+            31
           ]
         }
       ],
       "properties": {
-        "aux_id": "Saganaki22/ComfyUI-VoxCPM",
-        "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
-        "Node name for S&R": "VoxCPM2_DatasetMaker"
+        "cnr_id": "comfy-core",
+        "ver": "0.17.0",
+        "Node name for S&R": "LoadAudio"
       },
       "widgets_values": [
-        "",
-        "train.jsonl"
+        "sample-5.mp3",
+        null,
+        null
       ]
     },
     {
       "id": 4,
       "type": "PreviewAudio",
       "pos": [
-        2114.0216150827723,
-        3994.8592516590074
+        2090.3022508255603,
+        3998.5084595771464
       ],
       "size": [
-        575.6679862521287,
+        594.8258058109118,
         88
       ],
       "flags": {},
@@ -185,60 +212,7 @@
         {
           "name": "audio",
           "type": "AUDIO",
-          "link": 29
-        }
-      ],
-      "outputs": [],
-      "properties": {
-        "cnr_id": "comfy-core",
-        "ver": "0.17.0",
-        "Node name for S&R": "PreviewAudio"
-      },
-      "widgets_values": []
-    },
-    {
-      "id": 25,
-      "type": "MarkdownNote",
-      "pos": [
-        2589.5037970981516,
-        4558.306251554006
-      ],
-      "size": [
-        356.0580004250619,
-        88
-      ],
-      "flags": {},
-      "order": 3,
-      "mode": 4,
-      "inputs": [],
-      "outputs": [],
-      "title": "|",
-      "properties": {},
-      "widgets_values": [
-        "## Please read [Full LoRA Training Guide](https://github.com/Saganaki22/ComfyUI-VoxCPM2/blob/main/docs/readme-lora-training.md)\n## you will need to install extra requirements"
-      ],
-      "color": "#c09430",
-      "bgcolor": "rgba(24,24,27,.9)"
-    },
-    {
-      "id": 24,
-      "type": "PreviewAudio",
-      "pos": [
-        2728.948269266484,
-        3989.249490602276
-      ],
-      "size": [
-        474.8523661413469,
-        93.34270340935154
-      ],
-      "flags": {},
-      "order": 8,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "audio",
-          "type": "AUDIO",
-          "link": 30
+          "link": 32
         }
       ],
       "outputs": [],
@@ -268,21 +242,21 @@
       "title": "|",
       "properties": {},
       "widgets_values": [
-        "# VoxCPM2\n\n  ## Auto-Download\n\n  **Models auto-download on first run** - no manual setup needed!\n\n  | Model | VRAM | Size |\n  |-------|------|------|\n  | VoxCPM2 (bf16) | ~8GB | ~4GB |\n\n  ---\n\n  ## Manual Download\n\n  | File | Size | Link |\n  |------|------|------|\n  | VoxCPM2 | ~4GB | [Download](https://huggingface.co/openbmb/VoxCPM2) |\n\n<br>\n\n```\n  Place in:\n  ComfyUI/models/tts/VoxCPM/\n  └── VoxCPM2/\n      ├── config.json\n      ├── model.safetensors\n      ├── audiovae.pth\n      ├── tokenizer.json\n      └── ...\n```\n<br>\n\n  ---\n\n  ## Voice Design (no reference audio needed)\n\n  Put a natural-language description in `voice_description`:\n\n  > A young woman, gentle and sweet voice\n\n  > An old man with a gravelly, slow voice\n\n  > A child, excited and energetic\n\n  The description is automatically wrapped in parentheses and prepended to your text.\n\n  ---\n\n  ## Voice Cloning Modes\n\n  | Mode | Inputs | Description |\n  |------|--------|-------------|\n  | **Controllable** | reference audio only | Clones timbre, optional style control via voice_description |\n  | **Ultimate** | reference audio + prompt_text | Audio-continuation cloning, highest fidelity, every nuance reproduced\n   |\n\n  ---\n\n  ## LoRA Training\n\n  Train custom voice LoRA adapters directly in ComfyUI using the training nodes.\n\n  **[Full LoRA Training Guide](https://github.com/Saganaki22/ComfyUI-VoxCPM2/blob/main/docs/readme-lora-training.md)**\n\n  ---\n\n  ## Supported Languages (30)\n\n  Arabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian,\n  Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai,\n   Turkish, Vietnamese\n\n  Chinese Dialects: Sichuan, Cantonese, Wu, Northeastern, Henan, Shaanxi, Shandong, Tianjin, Southern Min\n\n  ---\n\n  ## Links\n\n  - Original [VoxCPM](https://github.com/OpenBMB/VoxCPM)\n  - Model [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2)\n  - Based on [ComfyUI-VoxCPM](https://github.com/wildminder/ComfyUI-VoxCPM) by\n  [@wildminder](https://github.com/wildminder)\n  - Issues [Report Bug](https://github.com/Saganaki22/ComfyUI-VoxCPM2/issues)"
+        "# VoxCPM2\n\n  ## Auto-Download\n\n  **Models auto-download on first run** - no manual setup needed!\n\n  | Model | VRAM | Size |\n  |-------|------|------|\n  | VoxCPM2 (bf16) | ~8GB | ~4GB |\n\n  ---\n\n  ## Manual Download\n\n  | File | Size | Link |\n  |------|------|------|\n  | VoxCPM2 | ~4GB | [Download](https://huggingface.co/openbmb/VoxCPM2) |\n\n<br>\n\n```\n  Place in:\n  ComfyUI/models/tts/VoxCPM/\n  └── VoxCPM2/\n      ├── config.json\n      ├── model.safetensors\n      ├── audiovae.pth\n      ├── tokenizer.json\n      └── ...\n```\n<br>\n\n  ---\n\n  ## Voice Design (no reference audio needed)\n\n  Put a natural-language description in `voice_description`:\n\n  > A young woman, gentle and sweet voice\n\n  > An old man with a gravelly, slow voice\n\n  > A child, excited and energetic\n\n  The description is automatically wrapped in parentheses and prepended to your text.\n\n  ---\n\n  ## Voice Cloning Modes\n\n  | Mode | Inputs | Description |\n  |------|--------|-------------|\n  | **Controllable** | reference audio only | Clones timbre, optional style control via voice_description |\n  | **Ultimate** | reference audio + prompt_text | Audio-continuation cloning, highest fidelity, every nuance reproduced\n  \n\n  ---\n\n  ## LoRA Training\n\n  Train custom voice LoRA adapters directly in ComfyUI using the training nodes.\n\n  **[Full LoRA Training Guide](https://github.com/Saganaki22/ComfyUI-VoxCPM2/blob/main/docs/readme-lora-training.md)**\n\n  ---\n\n  ## Supported Languages (30)\n\n  Arabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian,\n  Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai,\n   Turkish, Vietnamese\n\n  Chinese Dialects: Sichuan, Cantonese, Wu, Northeastern, Henan, Shaanxi, Shandong, Tianjin, Southern Min\n\n  ---\n\n  ## Links\n\n  - Original [VoxCPM](https://github.com/OpenBMB/VoxCPM)\n  - Model [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2)\n  - Based on [ComfyUI-VoxCPM](https://github.com/wildminder/ComfyUI-VoxCPM) by\n  [@wildminder](https://github.com/wildminder)\n  - Issues [Report Bug](https://github.com/Saganaki22/ComfyUI-VoxCPM2/issues)"
       ],
       "color": "#c09430",
       "bgcolor": "rgba(24,24,27,.9)"
     },
     {
-      "id": 21,
+      "id": 27,
       "type": "VoxCPM2_TTS",
       "pos": [
-        2777.6094249144994,
-        3430.9024036999153
+        2770.7861424456946,
+        3412.1742563526627
       ],
       "size": [
-        394.9824539550773,
-        495.0596259280651
+        400,
+        502
       ],
       "flags": {},
       "order": 5,
@@ -293,13 +267,13 @@
           "name": "Generated Audio",
           "type": "AUDIO",
           "links": [
-            30
+            33
           ]
         }
       ],
       "properties": {
-        "aux_id": "Saganaki22/ComfyUI-VoxCPM",
-        "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
+        "cnr_id": "ComfyUI-VoxCPM2",
+        "ver": "3a53e06471587e124ab0149f205c607c1b8c9fae",
         "Node name for S&R": "VoxCPM2_TTS"
       },
       "widgets_values": [
@@ -309,37 +283,38 @@
         "Hello, welcome to VoxCPM2!",
         2,
         10,
-        4096,
-        true,
-        637148037660353,
-        "randomize",
+        1024,
+        false,
+        42,
+        "fixed",
         false,
         "auto",
         "cuda",
+        false,
         3,
         6,
         false
       ]
     },
     {
-      "id": 22,
+      "id": 26,
       "type": "VoxCPM2_Clone",
       "pos": [
-        2287.168904550179,
-        3413.4307535513985
+        2284.432033412338,
+        3378.764078746633
       ],
       "size": [
         400,
-        532
+        580
       ],
       "flags": {},
-      "order": 6,
+      "order": 7,
       "mode": 0,
       "inputs": [
         {
           "name": "reference_audio",
           "type": "AUDIO",
-          "link": 28
+          "link": 31
         }
       ],
       "outputs": [
@@ -347,34 +322,65 @@
           "name": "Cloned Audio",
           "type": "AUDIO",
           "links": [
-            29
+            32
           ]
         }
       ],
       "properties": {
-        "aux_id": "Saganaki22/ComfyUI-VoxCPM",
-        "ver": "7875a8a36a531b7efef8cac96dc74001d3cb5895",
+        "cnr_id": "ComfyUI-VoxCPM2",
+        "ver": "3a53e06471587e124ab0149f205c607c1b8c9fae",
         "Node name for S&R": "VoxCPM2_Clone"
       },
       "widgets_values": [
         "VoxCPM2",
         "None",
-        "faster tone",
+        "",
         "This is a cloned voice generated by VoxCPM2.",
         "",
         2,
         10,
-        3999,
-        true,
-        84721404451014,
-        "randomize",
+        1024,
+        false,
+        false,
+        42,
+        "fixed",
         false,
         "auto",
         "cuda",
+        false,
         3,
         6,
         false
       ]
+    },
+    {
+      "id": 24,
+      "type": "PreviewAudio",
+      "pos": [
+        2730.210536211851,
+        3985.083602170819
+      ],
+      "size": [
+        474.8523661413469,
+        93.34270340935154
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 33
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.17.0",
+        "Node name for S&R": "PreviewAudio"
+      },
+      "widgets_values": []
     }
   ],
   "links": [
@@ -395,24 +401,24 @@
       "STRING"
     ],
     [
-      28,
+      31,
       3,
       0,
-      22,
+      26,
       0,
       "AUDIO"
     ],
     [
-      29,
-      22,
+      32,
+      26,
       0,
       4,
       0,
       "AUDIO"
     ],
     [
-      30,
-      21,
+      33,
+      27,
       0,
       24,
       0,
@@ -437,8 +443,8 @@
       "id": 2,
       "title": "Voice Design / TTS",
       "bounding": [
-        2722.1595262974383,
-        3341.274344423657,
+        2721.4055289583507,
+        3340.52039022601,
         492.84537834804814,
         755.1312335815865
       ],
@@ -452,8 +458,8 @@
       "bounding": [
         2225.5384977154695,
         4117.094091634125,
-        742.0497513470996,
-        549.6492501441904
+        745.3672130908603,
+        555.4546500104889
       ],
       "color": "#b58b2a",
       "font_size": 24,
@@ -463,10 +469,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.49500000000000977,
+      "scale": 0.544500000000015,
       "offset": [
-        -937.4050009812115,
-        -2806.4677483875707
+        -814.5730721830857,
+        -2917.5822528102995
       ]
     },
     "frontendVersion": "1.42.8",
