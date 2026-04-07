@@ -23,6 +23,9 @@
 
 </div>
 
+<img width="1646" height="1241" alt="Screenshot 2026-04-07 142144" src="https://github.com/user-attachments/assets/ac7acaf5-018f-4906-bb7e-3fd06a5be048" />
+
+
 <br>
 
 ## About
