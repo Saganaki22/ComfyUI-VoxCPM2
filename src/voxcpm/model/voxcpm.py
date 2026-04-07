@@ -239,11 +239,18 @@ class VoxCPMModel(nn.Module):
         if disable:
             return self
 
-        cuda_major = int(torch.version.cuda.split('.')[0]) if torch.cuda.is_available() and torch.version.cuda else 0
+        # Blackwell (sm_120+) has issues with reduce-overhead CUDA graphs on
+        # older PyTorch/CUDA builds — use default mode which works reliably.
+        # Non-Blackwell GPUs get reduce-overhead for maximum speedup.
+        use_default = False
+        if torch.cuda.is_available():
+            major, _ = torch.cuda.get_device_capability()
+            if major >= 12:  # Blackwell or newer
+                use_default = True
 
-        if cuda_major >= 13:
+        if use_default:
             mode, fullgraph = "default", False
-            print("[ComfyUI-VoxCPM] CUDA 13+ detected — using default torch.compile mode for compatibility", file=sys.stderr)
+            print("[ComfyUI-VoxCPM] Blackwell GPU detected — using default torch.compile mode", file=sys.stderr)
         else:
             mode, fullgraph = "reduce-overhead", True
             print("[ComfyUI-VoxCPM] Using reduce-overhead + fullgraph (CUDA graphs) for maximum speedup", file=sys.stderr)

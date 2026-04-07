@@ -175,6 +175,16 @@ class VoxCPM:
             else:
                 fixed_prompt_cache = None
 
+            # Preserve voice design description (parenthetical prefix) through
+            # normalization — the normalizer strips parentheses which would
+            # cause the model to speak the description literally instead of
+            # interpreting it as a style cue.
+            desc_match = re.match(r'^\([^)]*\)\s*', text)
+            voice_desc = ''
+            if desc_match:
+                voice_desc = desc_match.group(0)
+                text = text[len(voice_desc):]
+
             # Text Normalization
             if normalize:
                 if self.text_normalizer is None:
@@ -186,6 +196,10 @@ class VoxCPM:
                             def normalize(self, t): return t
                         self.text_normalizer = MockNormalizer()
                 text = self.text_normalizer.normalize(text)
+
+            # Restore voice design description
+            if voice_desc:
+                text = voice_desc + text
 
             generate_result = self.tts_model._generate_with_prompt_cache(
                 target_text=text,
