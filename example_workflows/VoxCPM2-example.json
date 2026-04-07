@@ -248,55 +248,6 @@
       "bgcolor": "rgba(24,24,27,.9)"
     },
     {
-      "id": 27,
-      "type": "VoxCPM2_TTS",
-      "pos": [
-        2770.7861424456946,
-        3412.1742563526627
-      ],
-      "size": [
-        400,
-        502
-      ],
-      "flags": {},
-      "order": 5,
-      "mode": 0,
-      "inputs": [],
-      "outputs": [
-        {
-          "name": "Generated Audio",
-          "type": "AUDIO",
-          "links": [
-            33
-          ]
-        }
-      ],
-      "properties": {
-        "cnr_id": "ComfyUI-VoxCPM2",
-        "ver": "3a53e06471587e124ab0149f205c607c1b8c9fae",
-        "Node name for S&R": "VoxCPM2_TTS"
-      },
-      "widgets_values": [
-        "VoxCPM2",
-        "None",
-        "An old man with a gravelly, slow voice",
-        "Hello, welcome to VoxCPM2!",
-        2,
-        10,
-        1024,
-        false,
-        42,
-        "fixed",
-        false,
-        "auto",
-        "cuda",
-        false,
-        3,
-        6,
-        false
-      ]
-    },
-    {
       "id": 26,
       "type": "VoxCPM2_Clone",
       "pos": [
@@ -381,6 +332,52 @@
         "Node name for S&R": "PreviewAudio"
       },
       "widgets_values": []
+    },
+    {
+      "id": 27,
+      "type": "VoxCPM2_TTS",
+      "pos": [
+        2770.7861424456946,
+        3412.1742563526627
+      ],
+      "size": [
+        400,
+        502
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "Generated Audio",
+          "type": "AUDIO",
+          "links": [
+            33
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "ComfyUI-VoxCPM2",
+        "ver": "3a53e06471587e124ab0149f205c607c1b8c9fae",
+        "Node name for S&R": "VoxCPM2_TTS"
+      },
+      "widgets_values": [
+        "VoxCPM2",
+        "None",
+        "An old man with a gravelly, slow voice",
+        "Hello, welcome to VoxCPM2!",
+        2,
+        10,
+        1024,
+        false,
+        205,
+        "fixed",
+        false,
+        "auto",
+        "cuda",
+        false
+      ]
     }
   ],
   "links": [
@@ -469,10 +466,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 0.544500000000015,
+      "scale": 0.8769226950000245,
       "offset": [
-        -814.5730721830857,
-        -2917.5822528102995
+        -1347.7268830861558,
+        -3266.9208408121362
       ]
     },
     "frontendVersion": "1.42.8",

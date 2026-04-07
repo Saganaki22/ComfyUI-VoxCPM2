@@ -238,13 +238,6 @@ class VoxCPMModel(nn.Module):
     def optimize(self, disable: bool = False):
         if disable:
             return self
-        
-        # Check actual model device
-        model_device = next(self.parameters()).device
-        if model_device.type != "cuda":
-            print("Skipping torch.compile optimization as model is not on a CUDA device.")
-            return self
-
         try:
             import triton
             self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode="reduce-overhead", fullgraph=True)

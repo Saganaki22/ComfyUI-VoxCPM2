@@ -34,12 +34,28 @@ def get_asr_model():
     try:
         from funasr import AutoModel
         from huggingface_hub import snapshot_download
+
         asr_model_ref = "FunAudioLLM/SenseVoiceSmall"
-        logger.info(f"Resolving ASR model: {asr_model_ref}")
-        asr_model_path = snapshot_download(repo_id=asr_model_ref)
+
+        # Cache in ComfyUI's audio_encoders directory
+        encoders_dir = os.path.join(folder_paths.models_dir, "audio_encoders")
+        os.makedirs(encoders_dir, exist_ok=True)
+        asr_local_dir = os.path.join(encoders_dir, "SenseVoiceSmall")
+
+        # Download only if not already cached locally
+        if not os.path.isdir(asr_local_dir) or not os.listdir(asr_local_dir):
+            logger.info(f"Downloading ASR model '{asr_model_ref}' to {asr_local_dir}...")
+            snapshot_download(
+                repo_id=asr_model_ref,
+                local_dir=asr_local_dir,
+                local_dir_use_symlinks=False,
+            )
+        else:
+            logger.info(f"Using cached ASR model from: {asr_local_dir}")
+
         logger.info("Loading ASR model on CPU ...")
         _ASR_MODEL = AutoModel(
-            model=asr_model_path,
+            model=asr_local_dir,
             disable_update=True,
             log_level="INFO",
             device="cpu",
@@ -215,10 +231,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
                 io.Boolean.Input("force_offload", default=False, label_on="Force Offload", label_off="Auto", tooltip="Fully unload model from VRAM and RAM after generation."),
                 io.Combo.Input("dtype", options=["auto", "bf16", "fp16"], default="auto", tooltip="Model dtype. Auto uses native bf16 (fp16 on older GPUs)."),
                 io.Combo.Input("device", options=available_devices, default=default_device, tooltip="Inference device."),
-                io.Boolean.Input("enable_asr", default=False, label_on="ASR", label_off="Off", tooltip="Auto-transcribe reference audio to text using SenseVoiceSmall ASR. Requires funasr package. First run downloads the model (~400MB)."),
-                io.Int.Input("retry_max_attempts", default=3, min=0, max=10, step=1, tooltip="Auto-retry on bad generation (babbling/silence). 0 = no retries."),
-                io.Float.Input("retry_threshold", default=6.0, min=2.0, max=20.0, step=0.1, tooltip="Threshold for detecting bad generations based on audio/text length ratio."),
-                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization for faster inference."),
+                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile + triton optimization. Faster on Linux, slower on Windows."),
             ],
             outputs=[
                 io.Audio.Output(display_name="Generated Audio"),
@@ -228,7 +241,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
     @classmethod
     def execute(cls, model_name, lora_name, device, text, cfg_value, inference_timesteps,
                 max_tokens, normalize_text, seed, force_offload,
-                enable_asr, retry_max_attempts, retry_threshold, torch_compile,
+                torch_compile,
                 voice_description="", dtype="auto", **kwargs):
 
         # Prepend voice description in parentheses if provided
@@ -264,9 +277,6 @@ class VoxCPM2TTSNode(io.ComfyNode):
                 inference_timesteps=inference_timesteps,
                 max_len=max_tokens,
                 normalize=normalize_text,
-                retry_badcase=retry_max_attempts > 0,
-                retry_badcase_max_times=retry_max_attempts,
-                retry_badcase_ratio_threshold=retry_threshold,
             )
 
             output_tensor = torch.from_numpy(wav_array).float().unsqueeze(0).unsqueeze(0)
@@ -327,7 +337,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
                 io.Boolean.Input("enable_asr", default=False, label_on="ASR", label_off="Off", tooltip="Auto-transcribe reference audio to text using SenseVoiceSmall ASR. Requires funasr package. Ignored when prompt_text is provided. First run downloads the model (~400MB)."),
                 io.Int.Input("retry_max_attempts", default=3, min=0, max=10, step=1, tooltip="Auto-retry on bad generation (babbling/silence). 0 = no retries."),
                 io.Float.Input("retry_threshold", default=6.0, min=2.0, max=20.0, step=0.1, tooltip="Threshold for detecting bad generations based on audio/text length ratio."),
-                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile optimization for faster inference."),
+                io.Boolean.Input("torch_compile", default=False, label_on="Torch Compile", label_off="Standard", tooltip="Enable torch.compile + triton optimization. Faster on Linux, slower on Windows."),
             ],
             outputs=[
                 io.Audio.Output(display_name="Cloned Audio"),

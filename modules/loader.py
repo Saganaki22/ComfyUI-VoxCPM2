@@ -106,7 +106,20 @@ def load_model(model_name: str, optimize: bool = False, torch_compile: bool = Fa
     if not voxcpm_path:
         raise RuntimeError(f"Could not determine path for model '{model_name}'")
 
-    logger.info("Instantiating VoxCPM model via pip package...")
+    logger.info("Instantiating VoxCPM model...")
+
+    # Use the bundled voxcpm package (src/voxcpm/) which supports both V1 and V2.
+    # This ensures all ComfyUI patches (ProgressBar, torch.compile, etc.) are applied.
+    import sys
+    _src_dir = os.path.join(os.path.dirname(__file__), '..', 'src')
+    _src_dir = os.path.normpath(_src_dir)
+    if _src_dir not in sys.path:
+        sys.path.insert(0, _src_dir)
+    # Purge any previously imported voxcpm modules (from pip package)
+    # so Python re-imports from our local src/ directory.
+    for key in list(sys.modules.keys()):
+        if key == 'voxcpm' or key.startswith('voxcpm.'):
+            del sys.modules[key]
 
     from voxcpm import VoxCPM as VoxCPMPipeline
     from voxcpm.model.voxcpm import LoRAConfig

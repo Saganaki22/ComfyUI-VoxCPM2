@@ -2,7 +2,7 @@
 ZipEnhancer Module - Audio Denoising Enhancer
 
 Provides on-demand import ZipEnhancer functionality for audio denoising processing.
-Related dependencies are imported only when denoising functionality is needed.
+Caches the model in ComfyUI's models directory for offline use after first download.
 """
 
 import os
@@ -14,18 +14,73 @@ from modelscope.pipelines import pipeline
 from modelscope.utils.constant import Tasks
 
 
+# Default ModelScope model ID
+_DEFAULT_MODEL_ID = "iic/speech_zipenhancer_ans_multiloss_16k_base"
+
+
+def _resolve_denoiser_path(model_path: str = None) -> str:
+    """Resolve the denoiser model to a local path, downloading if needed.
+
+    If model_path is already a local directory with files, return it as-is.
+    Otherwise, download from ModelScope to ComfyUI's models/denoiser/ directory.
+    """
+    # If a local path is given and exists, use it directly
+    if model_path and os.path.isdir(model_path) and os.listdir(model_path):
+        return model_path
+
+    model_id = model_path or _DEFAULT_MODEL_ID
+
+    # Try to find ComfyUI's models directory
+    try:
+        import folder_paths
+        denoiser_dir = os.path.join(folder_paths.models_dir, "denoiser", "zipenhancer")
+    except ImportError:
+        from pathlib import Path
+        denoiser_dir = os.path.join(Path.home(), ".cache", "voxcpm", "denoiser", "zipenhancer")
+
+    os.makedirs(denoiser_dir, exist_ok=True)
+
+    # If already downloaded, use the cached version
+    if os.listdir(denoiser_dir):
+        return denoiser_dir
+
+    # Download from ModelScope
+    print(f"[ZipEnhancer] Downloading denoiser model '{model_id}' to {denoiser_dir}...", flush=True)
+    try:
+        from modelscope.hub.snapshot_download import snapshot_download as ms_download
+        ms_download(model_id=model_id, cache_dir=denoiser_dir)
+        # ModelScope downloads to a subdirectory — find it
+        for item in os.listdir(denoiser_dir):
+            item_path = os.path.join(denoiser_dir, item)
+            if os.path.isdir(item_path):
+                # Check if this looks like the model (has model files)
+                has_files = any(
+                    f.endswith(('.bin', '.pth', '.json', '.ckpt', '.safetensors'))
+                    for f in os.listdir(item_path)
+                )
+                if has_files:
+                    return item_path
+        return denoiser_dir
+    except Exception:
+        # Fallback: let ModelScope handle caching itself
+        print(f"[ZipEnhancer] Could not pre-download. Falling back to ModelScope auto-cache.", flush=True)
+        return model_id
+
+
 class ZipEnhancer:
     """ZipEnhancer Audio Denoising Enhancer"""
-    def __init__(self, model_path: str = "iic/speech_zipenhancer_ans_multiloss_16k_base"):
+    def __init__(self, model_path: str = None):
         """
         Initialize ZipEnhancer
         Args:
-            model_path: ModelScope model path or local path
+            model_path: ModelScope model ID, or local path. If None, uses default
+                        and caches in ComfyUI's models/denoiser/ directory.
         """
-        self.model_path = model_path
+        self.model_path = model_path or _DEFAULT_MODEL_ID
+        local_path = _resolve_denoiser_path(self.model_path)
         self._pipeline = pipeline(
                 Tasks.acoustic_noise_suppression,
-                model=self.model_path
+                model=local_path,
             )
         
     def _normalize_loudness(self, wav_path: str):
