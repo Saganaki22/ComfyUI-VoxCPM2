@@ -1,0 +1,15 @@
+[project]
+name = "ComfyUI-VoxCPM2"
+description = "VoxCPM2 TTS for ComfyUI. 30 languages, voice design, controllable cloning, 48kHz audio, and LoRA training"
+version = "0.1.0"
+license = {file = "LICENSE"}
+dependencies = ["torch>=2.5.0","torchaudio>=2.5.0","transformers>=4.36.2","safetensors","huggingface_hub","einops","inflect","addict","wetext","pydantic","simplejson","sortedcontainers","soundfile","tqdm"]
+
+[project.urls]
+Repository = "https://github.com/Saganaki22/ComfyUI-VoxCPM2"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "saganaki22"
+DisplayName = "ComfyUI-VoxCPM2"
+Icon = "https://avatars.githubusercontent.com/u/84208527"
