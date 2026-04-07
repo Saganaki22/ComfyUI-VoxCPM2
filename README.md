@@ -45,8 +45,6 @@ This custom node provides two inference nodes and a full LoRA training pipeline,
 * **Automatic Model Management** — Models are downloaded and managed by ComfyUI to save VRAM
 * **Torch Compile** — Optional `torch.compile` optimization for faster inference
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 ## Installation
 
 ### Via ComfyUI Manager (Recommended)
@@ -76,8 +74,6 @@ The model is downloaded automatically on first use to `ComfyUI/models/tts/VoxCPM
 |:---|:---:|:---:|:---|:---|
 | **VoxCPM2** | 2B | 48kHz | Latest release. 30 languages, voice design, controllable cloning. | [openbmb/VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) |
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 ## Nodes
 
 ### VoxCPM2 TTS
@@ -96,6 +92,7 @@ Text-to-speech with optional voice design. No reference audio needed.
 | `normalize_text` | Toggle | Normalize | Auto-process numbers, abbreviations, punctuation |
 | `seed` | Int | -1 | Reproducibility seed (-1 = random) |
 | `force_offload` | Toggle | Auto | Force VRAM offload after generation |
+| `dtype` | Combo | auto | Model dtype: `auto` (native bf16, fp16 on older GPUs), `bf16`, `fp16` |
 | `device` | Combo | cuda | Inference device (cuda, mps, cpu) |
 | `retry_max_attempts` | Int | 3 | Auto-retries on bad generation (0–10) |
 | `retry_threshold` | Float | 6.0 | Threshold for detecting bad generations |
@@ -119,12 +116,11 @@ Voice cloning with controllable and ultimate modes.
 | `normalize_text` | Toggle | Normalize | Auto-process numbers, abbreviations, punctuation |
 | `seed` | Int | -1 | Reproducibility seed (-1 = random) |
 | `force_offload` | Toggle | Auto | Force VRAM offload after generation |
+| `dtype` | Combo | auto | Model dtype: `auto` (native bf16, fp16 on older GPUs), `bf16`, `fp16` |
 | `device` | Combo | cuda | Inference device (cuda, mps, cpu) |
 | `retry_max_attempts` | Int | 3 | Auto-retries on bad generation (0–10) |
 | `retry_threshold` | Float | 6.0 | Threshold for detecting bad generations |
 | `torch_compile` | Toggle | Standard | Enable `torch.compile` optimization |
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Usage
 
@@ -153,8 +149,6 @@ The description is automatically wrapped in parentheses and prepended to your te
 1. Same as above, but also provide the **exact transcript** of the reference audio in `prompt_text`.
 2. The model uses audio-continuation cloning to reproduce every vocal nuance.
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 ## LoRA Support
 
 ### Inference
@@ -165,8 +159,6 @@ The description is automatically wrapped in parentheses and prepended to your te
 Train custom LoRA adapters directly in ComfyUI using the training nodes (`VoxCPM2 Train Config`, `VoxCPM2 Dataset Maker`, `VoxCPM2 LoRA Trainer`).
 
 **[Click here for the full LoRA Training Guide](docs/readme-lora-training.md)**
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Tips for Best Results
 
@@ -180,15 +172,11 @@ Train custom LoRA adapters directly in ComfyUI using the training nodes (`VoxCPM
 - **`inference_timesteps` (default 10):** 5–10 for fast drafts, 15–25 for higher quality
 - **`normalize_text`:** Keep ON for natural language input. Turn OFF only for phoneme input like `{HH AH0 L OW1}`
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
 ## Supported Languages (30)
 
 Arabic, Burmese, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Indonesian, Italian, Japanese, Khmer, Korean, Lao, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Tagalog, Thai, Turkish, Vietnamese
 
 Chinese Dialects: Sichuan, Cantonese, Wu, Northeastern, Henan, Shaanxi, Shandong, Tianjin, Southern Min
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Limitations
 
@@ -196,8 +184,6 @@ Chinese Dialects: Sichuan, Cantonese, Wu, Northeastern, Henan, Shaanxi, Shandong
 - Performance varies across languages depending on training data availability
 - Occasional instability with very long or highly expressive inputs
 - **Strictly forbidden** to use for impersonation, fraud, or disinformation. AI-generated content should be clearly labeled.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## License
 

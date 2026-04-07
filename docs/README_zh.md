@@ -42,8 +42,6 @@
 * **自动模型管理** — 模型自动下载，由 ComfyUI 管理，节省显存
 * **Torch 编译** — 可选 `torch.compile` 优化，加速推理
 
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
-
 ## 安装
 
 ### 通过 ComfyUI Manager 安装（推荐）
@@ -72,8 +70,6 @@
 | 模型 | 参数量 | 采样率 | 说明 | Hugging Face |
 |:---|:---:|:---:|:---|:---|
 | **VoxCPM2** | 20亿 | 48kHz | 最新版本。30种语言、语音设计、可控克隆。 | [openbmb/VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) |
-
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
 
 ## 节点
 
@@ -123,8 +119,6 @@
 | `retry_threshold` | 浮点 | 6.0 | 检测异常生成的阈值 |
 | `torch_compile` | 开关 | Standard | 启用 `torch.compile` 优化 |
 
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
-
 ## 使用方法
 
 ### 文本转语音（零样本）
@@ -152,8 +146,6 @@
 1. 同上操作，但还需在 `prompt_text` 中提供参考音频的**精确文字稿**。
 2. 模型使用音频续写克隆技术，精确复刻每一个声音细节。
 
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
-
 ## LoRA 支持
 
 ### 推理
@@ -164,8 +156,6 @@
 使用训练节点（`VoxCPM2 Train Config`、`VoxCPM2 Dataset Maker`、`VoxCPM2 LoRA Trainer`）直接在 ComfyUI 中训练自定义 LoRA 适配器。
 
 **[点击查看完整的 LoRA 训练指南](readme-lora-training.md)**
-
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
 
 ## 最佳实践
 
@@ -179,15 +169,11 @@
 - **`inference_timesteps`（默认 10）：** 5-10 用于快速草稿，15-25 用于更高质量
 - **`normalize_text`：** 自然语言输入时保持开启。仅在输入音标如 `{HH AH0 L OW1}` 时关闭
 
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
-
 ## 支持语言（30种）
 
 阿拉伯语、缅甸语、中文、丹麦语、荷兰语、英语、芬兰语、法语、德语、希腊语、希伯来语、印地语、印尼语、意大利语、日语、高棉语、韩语、老挝语、马来语、挪威语、波兰语、葡萄牙语、俄语、西班牙语、斯瓦希里语、瑞典语、他加禄语、泰语、土耳其语、越南语
 
 中文方言：四川话、粤语、吴语、东北话、河南话、陕西话、山东话、天津话、闽南话
-
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
 
 ## 局限性
 
@@ -195,8 +181,6 @@
 - 不同语言的性能取决于训练数据的可用性
 - 非常长或高度表现力的输入偶尔可能出现不稳定
 - **严禁**用于冒充、欺诈或虚假信息。AI生成内容应明确标注。
-
-<p align="right">(<a href="#readme-top">回到顶部</a>)</p>
 
 ## 许可证
 
