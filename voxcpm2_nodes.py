@@ -100,7 +100,7 @@ def set_seed(seed: int):
         torch.cuda.manual_seed_all(seed)
     try:
         import numpy as np
-        np.random.seed(seed)
+        np.random.seed(seed & 0xFFFFFFFF)
     except ImportError:
         pass
 
