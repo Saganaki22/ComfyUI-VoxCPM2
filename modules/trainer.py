@@ -113,10 +113,24 @@ def run_lora_training(
 
     tokenizer = base_model.text_tokenizer
 
+    # Auto-detect encode sample rate from the loaded model's AudioVAE.
+    # Must match the encoder's expected rate (16000 for VoxCPM2) — using any
+    # other value causes HF datasets to resample to the wrong rate, producing
+    # garbage latent features during training.
+    detected_sr = base_model.audio_vae.sample_rate
+    dataset_sr = train_config.get("sample_rate", detected_sr)
+    if dataset_sr != detected_sr:
+        logger.warning(
+            f"sample_rate={dataset_sr} from config doesn't match AudioVAE encoder "
+            f"sample_rate={detected_sr}. Overriding to {detected_sr} to avoid "
+            f"corrupted training data."
+        )
+        dataset_sr = detected_sr
+
     logger.info("Loading dataset...")
     train_ds, _ = load_audio_text_datasets(
         train_manifest=dataset_path,
-        sample_rate=train_config.get("sample_rate", 44100),
+        sample_rate=dataset_sr,
     )
 
     def tokenize(batch):

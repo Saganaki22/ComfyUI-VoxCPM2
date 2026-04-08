@@ -13,6 +13,7 @@ Licensed under the Apache License, Version 2.0.
 """
 
 import os
+import re
 import sys
 from typing import Tuple, Union, Generator, List, Optional
 
@@ -463,7 +464,12 @@ class VoxCPM2Model(nn.Module):
             retry_badcase = False
 
         if reference_wav_path and prompt_wav_path:
-            text = prompt_text + target_text
+            _vd_match = re.match(r'^\([^)]*\)\s*', target_text)
+            if _vd_match:
+                _voice_desc = _vd_match.group(0)
+                text = _voice_desc + prompt_text + target_text[len(_voice_desc):]
+            else:
+                text = prompt_text + target_text
             text_token = torch.LongTensor(self.text_tokenizer(text))
             text_token = torch.cat(
                 [text_token, torch.tensor([self.audio_start_token], dtype=torch.int32, device=text_token.device)],
@@ -510,7 +516,12 @@ class VoxCPM2Model(nn.Module):
             audio_mask = torch.zeros(text_length, dtype=torch.int32).to(text_token.device)
 
         else:
-            text = prompt_text + target_text
+            _vd_match = re.match(r'^\([^)]*\)\s*', target_text)
+            if _vd_match:
+                _voice_desc = _vd_match.group(0)
+                text = _voice_desc + prompt_text + target_text[len(_voice_desc):]
+            else:
+                text = prompt_text + target_text
             text_token = torch.LongTensor(self.text_tokenizer(text))
             text_token = torch.cat(
                 [text_token, torch.tensor([self.audio_start_token], dtype=torch.int32, device=text_token.device)],
@@ -531,7 +542,8 @@ class VoxCPM2Model(nn.Module):
         audio_feat = audio_feat.unsqueeze(0).to(self.device).to(get_dtype(self.config.dtype))
         audio_mask = audio_mask.unsqueeze(0).to(self.device)
 
-        target_text_length = len(self.text_tokenizer(target_text))
+        _vd_stripped = re.sub(r'^\([^)]*\)\s*', '', target_text)
+        target_text_length = len(self.text_tokenizer(_vd_stripped))
 
         retry_badcase_times = 0
         while retry_badcase_times < retry_badcase_max_times:
@@ -646,7 +658,12 @@ class VoxCPM2Model(nn.Module):
             mode = prompt_cache.get("mode", "continuation")
             if mode in ("continuation", "ref_continuation"):
                 prompt_text = prompt_cache.get("prompt_text", "")
-                text = prompt_text + target_text
+                _vd_match = re.match(r'^\([^)]*\)\s*', target_text)
+                if _vd_match:
+                    _voice_desc = _vd_match.group(0)
+                    text = _voice_desc + prompt_text + target_text[len(_voice_desc):]
+                else:
+                    text = prompt_text + target_text
             else:
                 text = target_text
 
@@ -692,7 +709,8 @@ class VoxCPM2Model(nn.Module):
         audio_feat = audio_feat.unsqueeze(0).to(self.device).to(get_dtype(self.config.dtype))
         audio_mask = audio_mask.unsqueeze(0).to(self.device)
 
-        target_text_length = len(self.text_tokenizer(target_text))
+        _vd_stripped = re.sub(r'^\([^)]*\)\s*', '', target_text)
+        target_text_length = len(self.text_tokenizer(_vd_stripped))
         retry_badcase_times = 0
         while retry_badcase_times < retry_badcase_max_times:
             inference_result = self._inference(

@@ -49,7 +49,7 @@ my_dataset/
 
 ### 2. Audio Requirements (`.wav`)
 *   **Format**: WAV (PCM)
-*   **Sample Rate**: 48kHz is optimal for VoxCPM2 (the node will resample automatically if needed, but native is better).
+*   **Sample Rate**: 16kHz is the encoder input rate for both VoxCPM2 AudioVAE versions. Training audio is automatically resampled to match the encoder — any source sample rate works, but providing 16kHz avoids unnecessary resampling.
 *   **Length**: Short clips between 3 to 10 seconds work best. Avoid clips longer than 15 seconds to prevent VRAM issues.
 *   **Quality**: Clean, background-noise-free speech is critical.
 *   **Language**: Any of the 30 supported languages.
@@ -89,7 +89,7 @@ This node aggregates all hyperparameters.
     *   Simulates a larger batch size. Since the physical batch size is locked to 1 for stability, increase this to 4 or 8 to stabilize gradients.
 *   **`warmup_steps`**: Steps to ramp up the learning rate. Usually 5-10% of total steps.
 *   **`max_batch_tokens`**: Limits the amount of audio processed at once. Lower this if you encounter Out-Of-Memory (OOM) errors.
-*   **`sample_rate`** (Default: `44100`): Change to `48000` for VoxCPM2 native sample rate.
+*   **`sample_rate`** (Default: `16000`): Must match the AudioVAE encoder input rate. The trainer auto-detects the correct value from the loaded model and will warn + override if the config disagrees.
 *   **`enable_lm_lora`** / **`enable_dit_lora`** / **`enable_proj_lora`**: Choose which model components to apply LoRA to. LM and DiT are enabled by default.
 
 ### Step 3: Run Training (`VoxCPM2 LoRA Trainer`)
