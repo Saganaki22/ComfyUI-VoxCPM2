@@ -546,7 +546,7 @@ class VoxCPM2Model(nn.Module):
         target_text_length = len(self.text_tokenizer(_vd_stripped))
 
         retry_badcase_times = 0
-        while retry_badcase_times < retry_badcase_max_times:
+        while retry_badcase_times < retry_badcase_max_times or retry_badcase_times == 0:
             inference_result = self._inference(
                 text_token, text_mask, audio_feat, audio_mask,
                 min_len=min_len,
@@ -712,7 +712,7 @@ class VoxCPM2Model(nn.Module):
         _vd_stripped = re.sub(r'^\([^)]*\)\s*', '', target_text)
         target_text_length = len(self.text_tokenizer(_vd_stripped))
         retry_badcase_times = 0
-        while retry_badcase_times < retry_badcase_max_times:
+        while retry_badcase_times < retry_badcase_max_times or retry_badcase_times == 0:
             inference_result = self._inference(
                 text_token, text_mask, audio_feat, audio_mask,
                 min_len=min_len,

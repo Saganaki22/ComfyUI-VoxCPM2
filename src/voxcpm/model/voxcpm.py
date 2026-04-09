@@ -503,7 +503,7 @@ class VoxCPMModel(nn.Module):
         target_text_length = len(self.text_tokenizer(target_text))
         
         retry_badcase_times = 0
-        while retry_badcase_times < retry_badcase_max_times:
+        while retry_badcase_times < retry_badcase_max_times or retry_badcase_times == 0:
             inference_result = self._inference(
                 text_token,
                 text_mask,
@@ -698,7 +698,7 @@ class VoxCPMModel(nn.Module):
         # run inference
         target_text_length = len(self.text_tokenizer(target_text))
         retry_badcase_times = 0
-        while retry_badcase_times < retry_badcase_max_times:
+        while retry_badcase_times < retry_badcase_max_times or retry_badcase_times == 0:
             inference_result = self._inference(
                 text_token,
                 text_mask,

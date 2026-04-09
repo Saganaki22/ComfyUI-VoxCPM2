@@ -11,7 +11,9 @@ import comfy.model_management as model_management
 from comfy.utils import ProgressBar
 
 from voxcpm.model.voxcpm import VoxCPMModel
-from voxcpm.model.voxcpm import LoRAConfig
+from voxcpm.model.voxcpm import LoRAConfig as LoRAConfigV1
+from voxcpm.model.voxcpm2 import VoxCPM2Model
+from voxcpm.model.voxcpm2 import LoRAConfig as LoRAConfigV2
 from voxcpm.training import (
     Accelerator,
     BatchProcessor,
@@ -70,7 +72,7 @@ def run_lora_training(
     
     pretrained_path = resolve_model_path(base_model_name, folder_paths_module)
     os.makedirs(output_dir, exist_ok=True)
-    
+
     with open(os.path.join(output_dir, "train_config.json"), 'w') as f:
         json.dump({**train_config, "base_model": base_model_name}, f, indent=2)
 
@@ -78,7 +80,14 @@ def run_lora_training(
     model_management.soft_empty_cache()
 
     accelerator = Accelerator(amp=True)
-    
+
+    # Detect architecture from config.json to pick correct model class & LoRA config
+    with open(os.path.join(pretrained_path, "config.json")) as f:
+        arch = json.load(f).get("architecture", "voxcpm").lower()
+    model_cls = VoxCPM2Model if arch == "voxcpm2" else VoxCPMModel
+    LoRAConfig = LoRAConfigV2 if arch == "voxcpm2" else LoRAConfigV1
+    logger.info(f"Detected architecture: {arch} — using {model_cls.__name__}, {LoRAConfig.__name__}")
+
     lora_cfg = LoRAConfig(
         enable_lm=train_config.get("enable_lm_lora", True),
         enable_dit=train_config.get("enable_dit_lora", True),
@@ -89,10 +98,10 @@ def run_lora_training(
     )
 
     logger.info(f"Loading base model from {pretrained_path}...")
-    base_model = VoxCPMModel.from_local(
-        pretrained_path, 
-        optimize=False, 
-        training=True, 
+    base_model = model_cls.from_local(
+        pretrained_path,
+        optimize=False,
+        training=True,
         lora_config=lora_cfg
     )
     
@@ -139,8 +148,18 @@ def run_lora_training(
         return {"text_ids": text_ids}
 
     train_ds = train_ds.map(tokenize, batched=True, remove_columns=["text"])
-    
-    batch_size = 1 
+
+    # Filter long samples to prevent OOM (must run before audio_vae is detached)
+    max_bt = train_config.get("max_batch_tokens", 0)
+    if max_bt > 0:
+        from voxcpm.training.data import compute_sample_lengths
+        audio_vae_fps = base_model.audio_vae.sample_rate / base_model.audio_vae.hop_length
+        est_lengths = compute_sample_lengths(train_ds, audio_vae_fps=audio_vae_fps, patch_size=base_model.config.patch_size)
+        keep = [i for i, L in enumerate(est_lengths) if L <= max_bt]
+        logger.info(f"max_batch_tokens={max_bt}: keeping {len(keep)}/{len(est_lengths)} samples")
+        train_ds = train_ds.select(keep)
+
+    batch_size = 1
     
     train_loader = build_dataloader(
         train_ds,
@@ -150,7 +169,7 @@ def run_lora_training(
         drop_last=True,
     )
 
-    dataset_cnt = len(set(train_ds["dataset_id"])) if "dataset_id" in train_ds.column_names else 1
+    dataset_cnt = int(max(train_ds["dataset_id"])) + 1 if "dataset_id" in train_ds.column_names else 1
     
     batch_processor = BatchProcessor(
         config=base_model.config,
@@ -242,8 +261,11 @@ def run_lora_training(
                             total_loss_val += total_loss.item() * grad_accum_steps
                             did_backward = True
                         else:
-                            if step == 0:
-                                logger.error(f"Step 0: Loss has no grad_fn! Loss requires_grad: {total_loss.requires_grad}")
+                            if step == 0 and micro_step == 0:
+                                raise RuntimeError(
+                                    "Loss has no grad_fn at step 0 — LoRA params not receiving gradients. "
+                                    "Check lora_config."
+                                )
                             logger.warning(f"Step {step}: Skipping backward (no grad_fn)")
 
                 if did_backward:
