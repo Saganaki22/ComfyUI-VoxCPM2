@@ -9,38 +9,31 @@ warnings.filterwarnings("ignore", message=".*Online softmax is disabled.*")
 from .modules.model_info import AVAILABLE_VOXCPM_MODELS, MODEL_CONFIGS
 
 # ---------------------------------------------------------------------------
-# TorchCodec compatibility — newer torchaudio uses torchcodec as default
-# backend, which doesn't work on ROCm. Patch it to fall back to standard
-# torchaudio.load/save if torchcodec isn't available or functional.
+# TorchCodec compatibility — newer torchaudio (2.9+) routes load/save through
+# *_with_torchcodec helpers.  torchcodec may be missing, fail to import, or
+# import successfully but be broken at runtime (missing FFmpeg DLLs, version
+# mismatch, etc.).  Always replace the helpers with soundfile-based fallbacks
+# so voxcpm2_nodes.py can call torchaudio.save/load without worrying about it.
 # ---------------------------------------------------------------------------
 try:
     import torchaudio
     if hasattr(torchaudio, 'load_with_torchcodec'):
-        # Newer torchaudio (2.9+) routes load/save through *_with_torchcodec
-        # helpers.  If torchcodec is missing or broken we must replace those
-        # helpers — but we cannot call torchaudio.load/save from inside the
-        # replacement because they just re-dispatch into the helpers
-        # (infinite recursion).  Instead we use soundfile directly.
-        try:
-            import torchcodec  # noqa: F401
-        except (ImportError, RuntimeError):
-            import torch as _torch
-            import soundfile as _sf  # type: ignore
-            import numpy as np
+        import torch as _torch
+        import soundfile as _sf  # type: ignore
 
-            def _fallback_load(path, *args, **kwargs):
-                waveform, sr = _sf.read(str(path), dtype="float32", always_2d=True)
-                tensor = _torch.from_numpy(waveform.T)
-                return tensor, sr
+        def _fallback_load(path, *args, **kwargs):
+            waveform, sr = _sf.read(str(path), dtype="float32", always_2d=True)
+            tensor = _torch.from_numpy(waveform.T)
+            return tensor, sr
 
-            def _fallback_save(path, tensor, sample_rate, *args, **kwargs):
-                data = tensor.cpu().numpy().T
-                if data.ndim == 1:
-                    data = data[:, None]
-                _sf.write(str(path), data, sample_rate)
+        def _fallback_save(path, tensor, sample_rate, *args, **kwargs):
+            data = tensor.cpu().numpy().T
+            if data.ndim == 1:
+                data = data[:, None]
+            _sf.write(str(path), data, sample_rate)
 
-            torchaudio.load_with_torchcodec = _fallback_load
-            torchaudio.save_with_torchcodec = _fallback_save
+        torchaudio.load_with_torchcodec = _fallback_load
+        torchaudio.save_with_torchcodec = _fallback_save
 except Exception:
     pass
 
