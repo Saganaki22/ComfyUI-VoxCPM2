@@ -68,6 +68,14 @@ Search for `ComfyUI-VoxCPM2` and click "Install".
    pip install -r requirements.txt
    ```
 
+> **Python 3.13+ on Windows:** If `pip install` fails on `editdistance` with a `pdm.backend` import error or C4819 encoding warning, run:
+> ```sh
+> pip install pdm-backend
+> set CL=/utf-8    # CMD
+> # or in PowerShell: $env:CL="/utf-8"
+> pip install -r requirements.txt
+> ```
+
 3. Restart ComfyUI. Nodes appear under the `audio/tts` category.
 
 ## Models
