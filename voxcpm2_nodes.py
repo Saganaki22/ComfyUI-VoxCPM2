@@ -350,8 +350,14 @@ class VoxCPM2CloneNode(io.ComfyNode):
                 enable_asr, retry_max_attempts, retry_threshold, torch_compile,
                 reference_audio=None, prompt_text=None, voice_description="", dtype="auto", **kwargs):
 
-        # Prepend voice description in parentheses if provided
-        if voice_description and voice_description.strip():
+        # Voice description handling
+        has_voice_desc = bool(voice_description and voice_description.strip())
+        has_prompt = bool(prompt_text and prompt_text.strip())
+
+        if has_voice_desc and (has_prompt or enable_asr):
+            logger.warning("voice_description is ignored in Ultimate Cloning mode (prompt_text/ASR provided).")
+        elif has_voice_desc:
+            logger.info(f"Controllable Clone — voice_description: \"{voice_description.strip()}\"")
             text = f"({voice_description.strip()}){text}"
 
         if reference_audio is None:

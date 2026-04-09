@@ -944,7 +944,7 @@ class VoxCPM2Model(nn.Module):
             ckpt_file = lora_p if lora_p.suffix in [".ckpt", ".pth"] else None
 
         if safetensors_file and safetensors_file.exists() and SAFETENSORS_AVAILABLE:
-            state_dict = load_file(str(safetensors_file), device=device)
+            state_dict = load_file(str(safetensors_file), device="cpu")
         elif ckpt_file and ckpt_file.exists():
             ckpt = torch.load(ckpt_file, map_location=device, weights_only=False)
             state_dict = ckpt.get("state_dict", ckpt)

@@ -15,24 +15,29 @@ from .modules.model_info import AVAILABLE_VOXCPM_MODELS, MODEL_CONFIGS
 # ---------------------------------------------------------------------------
 try:
     import torchaudio
-    if not hasattr(torchaudio, 'load_with_torchcodec'):
-        # Older torchaudio — nothing to patch
-        pass
-    else:
+    if hasattr(torchaudio, 'load_with_torchcodec'):
+        # Newer torchaudio (2.9+) routes load/save through *_with_torchcodec
+        # helpers.  If torchcodec is missing or broken we must replace those
+        # helpers — but we cannot call torchaudio.load/save from inside the
+        # replacement because they just re-dispatch into the helpers
+        # (infinite recursion).  Instead we use soundfile directly.
         try:
-            # Test if torchcodec actually works
             import torchcodec  # noqa: F401
         except (ImportError, RuntimeError):
-            # torchcodec missing or broken — monkeypatch the *with_torchcodec
-            # wrappers to use standard torchaudio.load/save instead
-            _orig_load = torchaudio.load
-            _orig_save = torchaudio.save
+            import torch as _torch
+            import soundfile as _sf  # type: ignore
+            import numpy as np
 
             def _fallback_load(path, *args, **kwargs):
-                return _orig_load(path, *args, **kwargs)
+                waveform, sr = _sf.read(str(path), dtype="float32", always_2d=True)
+                tensor = _torch.from_numpy(waveform.T)
+                return tensor, sr
 
             def _fallback_save(path, tensor, sample_rate, *args, **kwargs):
-                return _orig_save(path, tensor, sample_rate, *args, **kwargs)
+                data = tensor.cpu().numpy().T
+                if data.ndim == 1:
+                    data = data[:, None]
+                _sf.write(str(path), data, sample_rate)
 
             torchaudio.load_with_torchcodec = _fallback_load
             torchaudio.save_with_torchcodec = _fallback_save
