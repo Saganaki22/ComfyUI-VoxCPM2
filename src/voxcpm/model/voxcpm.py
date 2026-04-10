@@ -239,9 +239,10 @@ class VoxCPMModel(nn.Module):
         if disable:
             return self
 
-        # Blackwell (sm_120+) has issues with reduce-overhead CUDA graphs on
-        # older PyTorch/CUDA builds — use default mode which works reliably.
-        # Non-Blackwell GPUs get reduce-overhead for maximum speedup.
+        # Blackwell (sm_120+) uses default mode for compatibility.
+        # Non-Blackwell GPUs use max-autotune-no-cudagraphs — Triton inductor
+        # kernels are faster than CUDA graphs and avoid cudaMallocAsync
+        # incompatibility with checkPoolLiveAllocations.
         use_default = False
         if torch.cuda.is_available():
             major, _ = torch.cuda.get_device_capability()
@@ -252,8 +253,8 @@ class VoxCPMModel(nn.Module):
             mode, fullgraph = "default", False
             print("[ComfyUI-VoxCPM] Blackwell GPU detected — using default torch.compile mode", file=sys.stderr)
         else:
-            mode, fullgraph = "reduce-overhead", True
-            print("[ComfyUI-VoxCPM] Using reduce-overhead + fullgraph (CUDA graphs) for maximum speedup", file=sys.stderr)
+            mode, fullgraph = "max-autotune-no-cudagraphs", False
+            print("[ComfyUI-VoxCPM] Using max-autotune-no-cudagraphs (Triton inductor) for maximum speedup", file=sys.stderr)
 
         try:
             self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode=mode, fullgraph=fullgraph)
