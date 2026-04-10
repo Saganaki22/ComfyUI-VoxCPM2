@@ -89,7 +89,7 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
         return hasattr(self, 'model') and self.model is not None and hasattr(self.model, 'model') and self.model.model is not None
 
     def is_dynamic(self):
-        return True
+        return False
 
     def _vbar_get(self):
         if not self.is_loaded:
@@ -207,14 +207,10 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
     def unpatch_model(self, device_to=None, unpatch_weights=True, *args, **kwargs):
         """Gentle offload — moves model to offload device but keeps it cached for fast reload."""
         if unpatch_weights and self.is_loaded:
-            if self._vbar_active or self._aimdo_auto:
-                mode = "VBAR" if self._vbar_active else "aimdo auto"
-                logger.info(f"{mode} active — letting ComfyUI handle offload")
-            else:
-                try:
-                    self.model.model.tts_model.to(self.offload_device)
-                except Exception:
-                    pass
+            try:
+                self.model.model.tts_model.to(self.offload_device)
+            except Exception:
+                pass
 
             # Keep self.model.model alive so LOADED_MODELS_CACHE stays valid.
             # patch_model will re-use the cached model on next load instead of reloading from disk.

@@ -287,7 +287,7 @@ class VoxCPM2TTSNode(io.ComfyNode):
             logger.info("VoxCPM2 TTS generation complete.")
 
             if force_offload:
-                cache_key = f"{model_name}_{device}_opt{False}_compile{torch_compile}_dtype{dtype}"
+                cache_key = f"{model_name}_{device}_opt{patcher.model.optimize}_compile{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
                 offload_asr()
@@ -470,7 +470,7 @@ class VoxCPM2CloneNode(io.ComfyNode):
             logger.info("VoxCPM2 voice cloning complete.")
 
             if force_offload:
-                cache_key = f"{model_name}_{device}_opt{False}_compile{torch_compile}_dtype{dtype}"
+                cache_key = f"{model_name}_{device}_opt{patcher.model.optimize}_compile{torch_compile}_dtype{dtype}"
                 patcher.force_unload()
                 VOXCPM_PATCHER_CACHE.pop(cache_key, None)
                 offload_asr()
