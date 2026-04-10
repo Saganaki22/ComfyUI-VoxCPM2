@@ -24,6 +24,19 @@ def _detect_vbar():
     return False, False
 
 
+class _NoopFinalizer:
+    """Drop-in replacement for weakref.finalize that never fires.
+
+    ComfyUI's LoadedModel.model_unload() calls model_finalizer.detach()
+    unconditionally, so we need an object with a detach() method.  Using a
+    real weakref.finalize with cleanup_models as the callback is dangerous
+    because gc.collect() inside free_memory can trigger it, which mutates
+    current_loaded_models mid-iteration and crashes ComfyUI.
+    """
+    def detach(self):
+        pass
+
+
 class VoxCPMVBar:
     """VBar implementation for aimdo dynamic VRAM visualization.
 
@@ -116,10 +129,6 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
             return
 
         try:
-            # Avoid double registration
-            if any(lm.model is self for lm in model_management.current_loaded_models):
-                return
-
             loaded = model_management.LoadedModel(self)
             tts_model = self.model.model.tts_model
 
@@ -133,8 +142,12 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
             }
 
             loaded.real_model = weakref.ref(tts_model)
-            loaded.model_finalizer = weakref.finalize(tts_model, model_management.cleanup_models)
-            loaded.model_finalizer.atexit = False
+            # Use a no-op finalizer instead of weakref.finalize(tts_model,
+            # cleanup_models).  The real callback fires cleanup_models() when
+            # gc.collect() runs, which pops entries from
+            # current_loaded_models mid-iteration inside free_memory() and
+            # crashes ComfyUI with IndexError.
+            loaded.model_finalizer = _NoopFinalizer()
             loaded.currently_used = True
 
             model_management.current_loaded_models.insert(0, loaded)
@@ -176,21 +189,22 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
 
         return super().patch_model(device_to=target_device, *args, **kwargs)
 
-    def force_unload(self):
-        """Fully unload the model from VRAM and RAM, clearing all caches.
-        Always runs, even when VBAR/aimdo is active."""
+    def _unload_model_memory(self):
+        """Free model from VRAM/RAM and clear caches.
+
+        Does NOT touch current_loaded_models — safe to call during
+        free_memory()'s index-based iteration.  free_memory handles
+        list cleanup itself (pop by index after the loop).
+        """
         from .loader import LOADED_MODELS_CACHE
 
-        self._unregister_from_comfy()
-
         if self.is_loaded:
-            logger.info(f"Force offloading VoxCPM model '{self.cache_key}' from VRAM and RAM...")
+            logger.info(f"Unloading VoxCPM model '{self.cache_key}' from VRAM and RAM...")
             model_instance = self.model.model
             self.model.model = None
             if model_instance is not None:
                 del model_instance
 
-        # Clear the loader cache entry so the model is fully released
         cache_key = f"{self.model.model_name}_opt{self.model.optimize}_compile{self.model.torch_compile}_dtype{self.model.dtype}"
         if cache_key in LOADED_MODELS_CACHE:
             del LOADED_MODELS_CACHE[cache_key]
@@ -202,17 +216,25 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
         gc.collect()
         model_management.soft_empty_cache()
 
+    def force_unload(self):
+        """Fully unload the model from VRAM and RAM, clearing all caches.
+
+        Always runs, even when VBAR/aimdo is active.  Safe to call from
+        the generate node (not during free_memory iteration).
+        """
+        self._unload_model_memory()
+        self._unregister_from_comfy()
         logger.info("Force offload complete.")
 
     def unpatch_model(self, device_to=None, unpatch_weights=True, *args, **kwargs):
-        """Fully unload model from VRAM and RAM when ComfyUI requests cleanup.
+        """Unload model when ComfyUI's free_memory iterates current_loaded_models.
 
-        This is called by ComfyUI's model management when "Free model and node cache"
-        is triggered or when VRAM needs to be freed for other models.  We perform a
-        full unload (equivalent to force_unload) so that the model is completely
-        released rather than lingering in RAM.
+        Called via LoadedModel.model_unload() → ModelPatcher.detach() →
+        unpatch_model().  MUST NOT mutate current_loaded_models — free_memory
+        saves indices in a first pass and uses them in a second pass; mutating
+        the list between passes causes IndexError.
         """
         if unpatch_weights and self.is_loaded:
-            self.force_unload()
+            self._unload_model_memory()
 
         return super().unpatch_model(device_to, unpatch_weights, *args, **kwargs)
