@@ -205,16 +205,14 @@ class VoxCPMPatcher(comfy.model_patcher.ModelPatcher):
         logger.info("Force offload complete.")
 
     def unpatch_model(self, device_to=None, unpatch_weights=True, *args, **kwargs):
-        """Gentle offload — moves model to offload device but keeps it cached for fast reload."""
-        if unpatch_weights and self.is_loaded:
-            try:
-                self.model.model.tts_model.to(self.offload_device)
-            except Exception:
-                pass
+        """Fully unload model from VRAM and RAM when ComfyUI requests cleanup.
 
-            # Keep self.model.model alive so LOADED_MODELS_CACHE stays valid.
-            # patch_model will re-use the cached model on next load instead of reloading from disk.
-            gc.collect()
-            model_management.soft_empty_cache()
+        This is called by ComfyUI's model management when "Free model and node cache"
+        is triggered or when VRAM needs to be freed for other models.  We perform a
+        full unload (equivalent to force_unload) so that the model is completely
+        released rather than lingering in RAM.
+        """
+        if unpatch_weights and self.is_loaded:
+            self.force_unload()
 
         return super().unpatch_model(device_to, unpatch_weights, *args, **kwargs)
