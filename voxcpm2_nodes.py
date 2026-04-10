@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import torch
 import torchaudio
@@ -76,7 +77,7 @@ def transcribe_audio(wav_path: str) -> str:
         return ""
     first_item = res[0]
     if isinstance(first_item, dict):
-        return str(first_item.get("text", "")).split("|>")[-1].strip()
+        return re.sub(r"<\|[^|>]*\|>", "", str(first_item.get("text", ""))).strip()
     return ""
 
 
