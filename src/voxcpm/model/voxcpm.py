@@ -259,6 +259,7 @@ class VoxCPMModel(nn.Module):
         try:
             self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode=mode, fullgraph=fullgraph)
             self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self._feat_encoder_raw = self.feat_encoder
             self.feat_encoder = torch.compile(self.feat_encoder, mode=mode)
             self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode=mode, fullgraph=fullgraph)
         except Exception as e:
@@ -772,7 +773,9 @@ class VoxCPMModel(nn.Module):
         
         B, T, P, D = feat.shape
 
-        feat_embed = self.feat_encoder(feat)  # [b, t, h_feat]
+        # Use uncompiled encoder for prefill to avoid CUDA Graph dynamic shape accumulation
+        prefill_encoder = getattr(self, "_feat_encoder_raw", self.feat_encoder)
+        feat_embed = prefill_encoder(feat)  # [b, t, h_feat]
         feat_embed = self.enc_to_lm_proj(feat_embed)
         
         scale_emb = getattr(self.config.lm_config, "scale_emb", 1.0)
@@ -867,7 +870,8 @@ class VoxCPMModel(nn.Module):
 
     @classmethod
     def from_local(cls, path: str, optimize: bool = True, training: bool = False, lora_config: LoRAConfig = None):
-        config = VoxCPMConfig.model_validate_json(open(os.path.join(path, "config.json")).read())
+        with open(os.path.join(path, "config.json")) as f:
+            config = VoxCPMConfig.model_validate_json(f.read())
         tokenizer = LlamaTokenizerFast.from_pretrained(path)
         audio_vae_config = getattr(config, 'audio_vae_config', None)
         audio_vae = AudioVAE(config=audio_vae_config) if audio_vae_config else AudioVAE()

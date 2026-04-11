@@ -289,6 +289,7 @@ class VoxCPM2Model(nn.Module):
         try:
             self.base_lm.forward_step = torch.compile(self.base_lm.forward_step, mode=mode, fullgraph=fullgraph)
             self.residual_lm.forward_step = torch.compile(self.residual_lm.forward_step, mode=mode, fullgraph=fullgraph)
+            self._feat_encoder_raw = self.feat_encoder
             self.feat_encoder = torch.compile(self.feat_encoder, mode=mode)
             self.feat_decoder.estimator = torch.compile(self.feat_decoder.estimator, mode=mode, fullgraph=fullgraph)
             print("[ComfyUI-VoxCPM] torch.compile wrappers applied — kernels compile on first inference", file=sys.stderr)
@@ -773,7 +774,9 @@ class VoxCPM2Model(nn.Module):
         """Core inference loop with ComfyUI progress reporting and cancellation."""
         B, T, P, D = feat.shape
 
-        feat_embed = self.feat_encoder(feat)
+        # Use uncompiled encoder for prefill to avoid CUDA Graph dynamic shape accumulation
+        prefill_encoder = getattr(self, "_feat_encoder_raw", self.feat_encoder)
+        feat_embed = prefill_encoder(feat)
         feat_embed = self.enc_to_lm_proj(feat_embed)
 
         if self.config.lm_config.use_mup:
@@ -871,7 +874,8 @@ class VoxCPM2Model(nn.Module):
 
     @classmethod
     def from_local(cls, path: str, optimize: bool = True, training: bool = False, lora_config: LoRAConfig = None):
-        config = VoxCPMConfig.model_validate_json(open(os.path.join(path, "config.json")).read())
+        with open(os.path.join(path, "config.json")) as f:
+            config = VoxCPMConfig.model_validate_json(f.read())
         tokenizer = LlamaTokenizerFast.from_pretrained(path)
         audio_vae_config = getattr(config, "audio_vae_config", None)
         audio_vae = AudioVAEV2(config=audio_vae_config) if audio_vae_config else AudioVAEV2()
